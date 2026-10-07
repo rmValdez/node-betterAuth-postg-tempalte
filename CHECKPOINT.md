@@ -1,17 +1,17 @@
 # TURNING POINT CHECKPOINT: Better Auth Migration
 
-> **STATUS**: TURNING POINT 1 - BASELINE IMPORT COMPLETE  
+> **STATUS**: CHECKPOINT 2 - BETTER AUTH INSTALLED & PRISMA SCHEMA GENERATED  
+> **PAUSED FOR NOW**: Resuming tomorrow or whenever you return and say "continue".  
 > **TIMESTAMP**: 2026-10-07  
-> **GIT COMMIT**: `cf2bff9` (Tag: `turning-point-baseline`)  
-> **NEXT COMMAND**: Say **"continue"** to start Step 1 (Installing Better Auth and Schema Migration).
+> **GIT TAG**: `checkpoint-phase-1-schema`  
 
 ---
 
 ## 1. Executive Summary
 
-This repository (`node-betterAuth-postg-tempalte`) serves as the production-ready Node.js + PostgreSQL backend for multi-tenant applications, migrated from custom JWT authentication to **Better Auth**.
+This repository (`node-betterAuth-postg-tempalte`) serves as the production-ready Node.js + PostgreSQL backend, migrating from custom JWT authentication to **Better Auth**.
 
-The baseline has been cleanly copied from `node-postg-backend-template` and preserved as a git checkpoint.
+All work up to this point is cleanly compiled, generated, and saved. When you return tomorrow and say **"continue"**, we will immediately proceed with creating the Better Auth instance (`src/auth/better-auth.ts`) and Express route mounting.
 
 ---
 
@@ -58,30 +58,17 @@ Node.js Express Backend (Single Source of Truth)
 
 ---
 
-## 4. Immediate Resume Plan ("When I say continue")
+## 4. Current Progress & Next Steps For Tomorrow
 
-When the user enters **"continue"**, execution will immediately pick up and carry out the following sequential phases:
-
-### Phase 1: Dependencies & Configuration Setup
-1. Install `better-auth` via `pnpm add better-auth`.
-2. Create environment variables in `.env` and `.env.example`:
-   - `BETTER_AUTH_SECRET`
-   - `BETTER_AUTH_URL=http://localhost:5000`
-   - `FRONTEND_URL=http://localhost:3000`
-   - OAuth credentials (Google, GitHub, etc.)
-3. Create `src/auth/better-auth.ts`:
-   - Instantiate Better Auth with Prisma adapter.
-   - Configure session management (cookie attributes, expiry, multi-device).
-   - Configure email/password plugin, trusted origins, and custom user fields (`role`, `tenantId`, `isActive`).
-
-### Phase 2: Prisma Schema Transformation
-1. Update `prisma/schema.prisma` to include Better Auth tables:
-   - `User` (`id`, `name`, `email`, `emailVerified`, `image`, `createdAt`, `updatedAt`, `role`, `tenantId`, `isActive`, `lastLoginAt`)
-   - `Session` (`id`, `userId`, `token`, `expiresAt`, `ipAddress`, `userAgent`, `createdAt`, `updatedAt`)
-   - `Account` (`id`, `userId`, `accountId`, `providerId`, `accessToken`, `refreshToken`, `idToken`, `accessTokenExpiresAt`, `refreshTokenExpiresAt`, `scope`, `password`, `createdAt`, `updatedAt`)
-   - `Verification` (`id`, `identifier`, `value`, `expiresAt`, `createdAt`, `updatedAt`)
-2. Maintain existing relations to `Tenant`, `TenantMembership`, `QuizProgress`, and `File`.
-3. Generate updated Prisma client (`npx prisma generate`).
+- [x] **Import Baseline Template**: Copied from `node-postg-backend-template` (Tag: `turning-point-baseline`)
+- [x] **Install Better Auth**: `better-auth@1.7.7` added to workspace
+- [x] **Update Prisma Schema**: `User`, `Session`, `Account`, `Verification` configured with domain relationships
+- [x] **Generate Prisma Client**: `npx prisma generate` executed successfully
+- [ ] **Next Step 1 (Tomorrow)**: Implement `src/auth/better-auth.ts` (Prisma adapter, session cookies, OAuth, custom fields)
+- [ ] **Next Step 2 (Tomorrow)**: Mount `/api/auth/*` route handler in `src/app.ts` (`toNodeHandler(auth)`)
+- [ ] **Next Step 3 (Tomorrow)**: Refactor `src/middleware/auth.middleware.ts` to use Better Auth session lookup
+- [ ] **Next Step 4 (Tomorrow)**: Update CORS and cookie settings for Next.js frontend communication
+- [ ] **Next Step 5 (Tomorrow)**: Update tests and cleanly decommission legacy JWT utilities (`jsonwebtoken`)
 
 ### Phase 3: Route & Middleware Integration
 1. Mount Better Auth Express handler in `src/app.ts`:
