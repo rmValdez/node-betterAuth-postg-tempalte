@@ -1,14 +1,19 @@
-# node-postg-backend-template
+# node-betterAuth-postg-template
 
-A production-ready Node.js backend boilerplate using TypeScript, Express, and Prisma with PostgreSQL.
+A production-ready Node.js backend boilerplate using TypeScript, Express, and Prisma with PostgreSQL, powered by **Better Auth** as the single source of truth for authentication.
+
+> 📍 **Migration Status**: Turning Point Checkpoint 1 established.  
+> Read the [Migration Checkpoint](CHECKPOINT.md) and [Better Auth Migration Roadmap](docs/BETTER_AUTH_MIGRATION_ROADMAP.md) for full architecture and execution details.
 
 ## Features
 
-- **TypeScript**: Typed development with TS-Node and Nodemon.
-- **Prisma ORM**: Modern database management for PostgreSQL.
+- **Better Auth Integration**: Native session management, OAuth (Google/GitHub/Apple), email verification, and password reset.
+- **TypeScript**: Typed development with `tsx` and `nodemon`.
+- **Prisma ORM**: Modern database schema & migrations for PostgreSQL.
+- **Multi-Tenant Architecture**: Built-in tenant separation, membership roles, and RBAC.
 - **SRC Pattern**: Service-Repository-Controller architectural pattern.
-- **Logging**: Structured logging with Winston.
-- **Security**: Helmet, CORS, and password hashing with Bcrypt.
+- **Logging & Observability**: Structured logging with Winston, Sentry telemetry, and Prometheus metrics.
+- **Message Queuing & Cache**: RabbitMQ consumer/publisher infrastructure and Redis caching.
 - **Docker**: Containerized setup with `docker-compose`.
 
 ## Getting Started
