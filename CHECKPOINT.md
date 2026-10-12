@@ -1,118 +1,116 @@
-# TURNING POINT CHECKPOINT: Better Auth Migration
+# TURNING POINT CHECKPOINT: Better Auth Migration & Full Stack Integration
 
-> **STATUS**: CHECKPOINT 2 - BETTER AUTH INSTALLED & PRISMA SCHEMA GENERATED  
-> **PAUSED FOR NOW**: Resuming tomorrow or whenever you return and say "continue".  
-> **TIMESTAMP**: 2026-10-07  
-> **GIT TAG**: `checkpoint-phase-1-schema`  
+> **STATUS**: CHECKPOINT 5 - ROLES ALIGNED, BETTER AUTH CLIENT INTEGRATED, FULL BUILDS VERIFIED  
+> **TIMESTAMP**: 2026-10-12  
+> **GIT TAG (BACKEND)**: `checkpoint-phase-3-integration`  
+> **GIT REMOTE (FRONTEND)**: `https://github.com/rmValdez/next-betterAuth-template-v1.git` (HEAD: `b8abd96` JWT Baseline)  
 
 ---
 
 ## 1. Executive Summary
 
-This repository (`node-betterAuth-postg-tempalte`) serves as the production-ready Node.js + PostgreSQL backend, migrating from custom JWT authentication to **Better Auth**.
+This project integrates a production-ready **Node.js Express + Better Auth + PostgreSQL** backend with a modern **Next.js 15 (App Router)** frontend template.
 
-All work up to this point is cleanly compiled, generated, and saved. When you return tomorrow and say **"continue"**, we will immediately proceed with creating the Better Auth instance (`src/auth/better-auth.ts`) and Express route mounting.
+- **Backend (`node-betterAuth-postg-tempalte`)**:
+  - Express on port `3002`.
+  - Single Source of Truth for all authentication, user accounts, sessions, and RBAC (`USER`, `ADMIN`, `SUPER_ADMIN`, `DEVELOPER`).
+  - Unit tests passing (**38 / 38 unit tests** across 6 test suites).
+  - TypeScript build clean (`pnpm build`), architecture validated (`pnpm validate`).
+- **Frontend (`next-betterAuth-template-v1`)**:
+  - Located at `C:\Users\My PC\Documents\Github\personal\template\integrated-repo\frontend\next-betterAuth-template-v1`.
+  - Pushed to GitHub repository: `https://github.com/rmValdez/next-betterAuth-template-v1.git` at commit `b8abd96` (JWT baseline).
+  - Roles aligned with backend Prisma RBAC (`USER`, `ADMIN`, `SUPER_ADMIN`, `DEVELOPER`).
+  - Auth components updated: `LoginForm.tsx`, `RegisterWorkflow.tsx`, `app/login/page.tsx`, `app/register/page.tsx`.
+  - All **22 Vitest tests pass** (`4 suites`), architecture scanner clean, and production build succeeds (`next build` compiled cleanly).
 
 ---
 
-## 2. Architecture Target
+## 2. Directory & Repository Map
 
 ```text
-Next.js Frontend (Web UI / Client)
-       │
-       │ HTTPS / Credentials (Cookies)
-       ▼
-Node.js Express Backend (Single Source of Truth)
-       │
-       ├── Better Auth Layer (Authentication Authority)
-       │    ├── /api/auth/* (toNodeHandler)
-       │    ├── Users (email, emailVerified, image, roles, tenantId)
-       │    ├── Sessions (cookie-backed session tokens, multi-device)
-       │    ├── Accounts (passwords, OAuth: Google/GitHub/Apple)
-       │    └── Verifications (email verify, password reset tokens)
-       │
-       ├── Domain / Business Layer (Authorization & Logic)
-       │    ├── Multi-tenancy (Tenant, TenantMembership)
-       │    ├── Quiz Engine (QuizQuestion, QuizProgress)
-       │    ├── Media Storage (File / Avatar)
-       │    └── Role-Based Access Control (RBAC middleware)
-       │
-       └── PostgreSQL (via Prisma ORM 6)
+integrated-repo/
+├── backend/
+│   ├── node-postg-backend-template       <-- Original backend (JWT)
+│   └── node-betterAuth-postg-tempalte   <-- Active Better Auth backend (Port 3002)
+└── frontend/
+    ├── next-template-v1                 <-- Original frontend template
+    └── next-betterAuth-template-v1      <-- Connected frontend template (Port 3000)
 ```
 
+- **Frontend Remote**: `https://github.com/rmValdez/next-betterAuth-template-v1.git`
+  - Current commit on GitHub `main`: `b8abd96` (`feat: initial Next.js template baseline with JWT authentication`).
+  - Next commit to apply upon resumption: `feat(auth): integrate Better Auth client with Express backend`.
+
 ---
 
-## 3. Current State vs Target State
+## 3. Key Design Decisions & Code Architecture
 
-| Component | Current State (Baseline) | Target State (After Migration) |
+### 3.1 Environment & URL Configuration
+- **No Extra `.env` Variables**: Rather than requiring developers to maintain both `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_AUTH_URL` in `.env`, the root backend origin is derived automatically in `src/shared/config/api.ts`:
+  ```typescript
+  export const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
+  export const AUTH_BASE_URL = env.NEXT_PUBLIC_AUTH_URL || new URL(env.NEXT_PUBLIC_API_URL).origin;
+  ```
+- **Beginner-Friendly `.env` Validation**:
+  - `src/shared/lib/env.ts` eliminates broken encoding characters and displays plain-language setup instructions if `.env.local` is missing.
+  - `NEXT_PUBLIC_AUTH_URL` is completely optional.
+
+### 3.2 Better Auth Client Setup
+- **Client File**: `src/shared/lib/auth-client.ts`
+  ```typescript
+  import { createAuthClient } from "better-auth/react";
+  import { AUTH_BASE_URL } from "@/shared/config/api";
+
+  export const authClient = createAuthClient({
+    baseURL: AUTH_BASE_URL,
+    fetchOptions: {
+      credentials: "include", // Transmits session cookies cross-origin
+    },
+  });
+
+  export const { signIn, signUp, signOut, useSession, getSession } = authClient;
+  ```
+- **Domain API Requests (`src/shared/lib/http.ts`)**:
+  - `fetcher` specifies `credentials: "include"`, ensuring Better Auth cookies (`better-auth.session_token`) are forwarded automatically to Express.
+
+### 3.3 Roles & Permissions (RBAC) Architecture
+- **Backend Prisma `UserRole`**:
+  - `SUPER_ADMIN`: Complete system access (`users:*`, `dashboard:view`, `settings:manage`, `sandbox:access`, `quiz:manage`).
+  - `ADMIN`: Operational management (`users:*`, `dashboard:view`, `settings:manage`, `sandbox:access`, `quiz:manage`).
+  - `DEVELOPER`: API and sandbox access (`users:read`, `dashboard:view`, `sandbox:access`, `quiz:manage`).
+  - `USER`: Standard user (`dashboard:view`, `sandbox:access`).
+- **Frontend Role Alignment**:
+  - `src/features/auth/types.ts`: `LoginRole = "user" | "admin" | "super_admin" | "developer"`
+  - `src/features/auth/api/login.api.ts`: `UserRole = "USER" | "ADMIN" | "SUPER_ADMIN" | "DEVELOPER"`
+  - `src/features/users/types.ts`: `SYSTEM_ROLES = { SUPER_ADMIN, ADMIN, DEVELOPER, USER }`
+  - `LoginForm.tsx`: Offers `User`, `Admin`, `Developer` portal sign-in options, or universal email/password authentication.
+  - `RegisterWorkflow.tsx`: Clean registration for `Standard User` and `Developer Access`.
+
+---
+
+## 4. Verification & Health Summary
+
+| Check | Backend (`node-betterAuth-postg-tempalte`) | Frontend (`next-betterAuth-template-v1`) |
 |---|---|---|
-| **Auth Engine** | Custom JWT (`jsonwebtoken`, `bcrypt`) | Better Auth (`better-auth` + `@better-auth/cli`) |
-| **Session Model** | Custom `sessions` table (refresh tokens) | Better Auth `session` table (session token cookies) |
-| **User Model** | Prisma `users` table with password & tokens | Better Auth `user` + `account` with custom domain fields |
-| **OAuth** | Placeholder provider string in session | Better Auth native OAuth plugins (Google, Apple, etc.) |
-| **Verification** | Custom or unverified | Native Better Auth email verification & password reset |
-| **Auth Middleware** | `verifyAccessToken` decoding Bearer JWT | `authMiddleware` calling `auth.api.getSession({ headers })` |
-| **Auth Routes** | Express router at `/api/v1/auth/*` | Better Auth handler mount at `/api/auth/*` + `/api/v1/auth/*` alias |
-| **Domain Models** | `Tenant`, `TenantMembership`, `Quiz*`, `File` | **Preserved 100%**, tied to Better Auth `user.id` |
-| **Frontend Auth** | Custom token storage / cookies | `@better-auth/client` / `better-auth/react` |
+| **TypeScript (`tsc --noEmit`)** | ✅ Passed (0 errors) | ✅ Passed (0 errors) |
+| **Unit Tests** | ✅ 38 / 38 unit tests passed (6 suites) | ✅ 22 / 22 vitest tests passed (4 suites) |
+| **Architecture Validator** | ✅ Clean (`tools/validate-architecture.mjs`) | ✅ Clean (`tools/validate-architecture.mjs`) |
+| **Production Build** | ✅ `pnpm build` clean | ✅ `next build` clean (all routes compiled) |
+| **Git Remote Sync** | Local working repo | Baseline pushed (`b8abd96`) |
 
 ---
 
-## 4. Current Progress & Next Steps For Tomorrow
+## 5. Immediate Next Steps When Resuming
 
-- [x] **Import Baseline Template**: Copied from `node-postg-backend-template` (Tag: `turning-point-baseline`)
-- [x] **Install Better Auth**: `better-auth@1.7.7` added to workspace
-- [x] **Update Prisma Schema**: `User`, `Session`, `Account`, `Verification` configured with domain relationships
-- [x] **Generate Prisma Client**: `npx prisma generate` executed successfully
-- [ ] **Next Step 1 (Tomorrow)**: Implement `src/auth/better-auth.ts` (Prisma adapter, session cookies, OAuth, custom fields)
-- [ ] **Next Step 2 (Tomorrow)**: Mount `/api/auth/*` route handler in `src/app.ts` (`toNodeHandler(auth)`)
-- [ ] **Next Step 3 (Tomorrow)**: Refactor `src/middleware/auth.middleware.ts` to use Better Auth session lookup
-- [ ] **Next Step 4 (Tomorrow)**: Update CORS and cookie settings for Next.js frontend communication
-- [ ] **Next Step 5 (Tomorrow)**: Update tests and cleanly decommission legacy JWT utilities (`jsonwebtoken`)
+1. **Commit & Push Frontend Changes**:
+   - Stage and commit Better Auth integration changes to `next-betterAuth-template-v1`:
+     `git commit -m "feat(auth): integrate Better Auth client with Express backend"`
+   - Push to `main`.
+2. **Commit & Push Backend Changes**:
+   - Stage and commit updated auth middleware, docs, and seeder to `node-betterAuth-postg-tempalte`.
+   - Push to remote.
+3. **End-to-End Test in Browser**:
+   - Start backend: `pnpm dev` in `backend/node-betterAuth-postg-tempalte` (Port 3002).
+   - Start frontend: `pnpm dev` in `frontend/next-betterAuth-template-v1` (Port 3000).
+   - Test user registration and login in the browser to verify cookie storage and session persistence.
 
-### Phase 3: Route & Middleware Integration
-1. Mount Better Auth Express handler in `src/app.ts`:
-   ```typescript
-   import { toNodeHandler } from "better-auth/node";
-   import { auth } from "./auth/better-auth";
-   app.all("/api/auth/*", toNodeHandler(auth));
-   ```
-2. Refactor `src/middleware/auth.middleware.ts`:
-   - Extract user session using `auth.api.getSession({ headers: req.headers })`.
-   - Populate `req.user` and `req.session` with type safety.
-   - Preserve authorization checks (`role.middleware.ts`, `tenant.middleware.ts`).
-3. Update `src/controllers/auth.controller.ts` or forward legacy contract if needed during transition.
-
-### Phase 4: CORS & Cookie Hardening
-1. Update `src/middleware/cors.middleware.ts` to support Next.js `credentials: true` and trusted origins from `FRONTEND_URL`.
-2. Configure Better Auth cookies for local development (HTTP, localhost) and production (HTTPS, Secure, SameSite, domain).
-
-### Phase 5: Next.js Client Integration Documentation & Contracts
-1. Create client template in `docs/NEXTJS_CLIENT_INTEGRATION.md` detailing:
-   - `createAuthClient` initialization.
-   - React hooks (`useSession`, `signIn`, `signUp`, `signOut`).
-   - Server Component session resolution (`authClient.getSession`).
-   - Protected route proxies and middleware in Next.js.
-
-### Phase 6: Automated Testing & Verification
-1. Update unit and integration tests:
-   - `tests/integration/auth.integration.test.ts`
-   - `tests/unit/auth.middleware.test.ts`
-2. Test user registration, login, session validation, role authorization, and logout.
-
-### Phase 7: Deprecate Legacy JWT Artifacts
-1. Remove `jsonwebtoken` from `package.json` dependencies.
-2. Remove legacy token generation utilities (`generateAccessToken`, `generateRefreshToken`).
-3. Clean out unused JWT secrets (`JWT_SECRET`, `JWT_REFRESH_SECRET`) from environment files.
-4. Verify repository contains no dangling JWT dependencies.
-5. Commit migration milestone: `feat: complete Better Auth migration`.
-
----
-
-## 5. Key References
-
-* **Roadmap Guide**: [docs/BETTER_AUTH_MIGRATION_ROADMAP.md](file:///C:/Users/My%20PC/Documents/Github/personal/template/integrated-repo/backend/node-betterAuth-postg-tempalte/docs/BETTER_AUTH_MIGRATION_ROADMAP.md)
-* **Schema Definition**: [prisma/schema.prisma](file:///C:/Users/My%20PC/Documents/Github/personal/template/integrated-repo/backend/node-betterAuth-postg-tempalte/prisma/schema.prisma)
-* **Server Entrypoint**: [src/server.ts](file:///C:/Users/My%20PC/Documents/Github/personal/template/integrated-repo/backend/node-betterAuth-postg-tempalte/src/server.ts)
-* **Express App Setup**: [src/app.ts](file:///C:/Users/My%20PC/Documents/Github/personal/template/integrated-repo/backend/node-betterAuth-postg-tempalte/src/app.ts)
-* **Auth Middleware**: [src/middleware/auth.middleware.ts](file:///C:/Users/My%20PC/Documents/Github/personal/template/integrated-repo/backend/node-betterAuth-postg-tempalte/src/middleware/auth.middleware.ts)

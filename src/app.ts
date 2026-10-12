@@ -10,6 +10,8 @@ import { tenantMiddleware } from './middleware/tenant.middleware';
 import { errorHandler } from './middleware/error.middleware';
 import { correlationMiddleware } from './middleware/correlation.middleware';
 import { setupSwagger } from './swagger';
+import { toNodeHandler } from 'better-auth/node';
+import { auth } from './auth/better-auth';
 
 const app = express();
 
@@ -20,6 +22,9 @@ app.use(corsMiddleware);
 app.options('*', corsMiddleware);
 app.use(cookieParser(COOKIE_SECRET));
 app.use(tenantMiddleware);
+
+// Better Auth endpoint (handles /api/auth/sign-in, sign-up, session, etc.)
+app.all(['/api/auth', '/api/auth/*'], toNodeHandler(auth));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

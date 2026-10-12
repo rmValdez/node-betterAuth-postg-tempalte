@@ -11,10 +11,12 @@ const config: Config = {
   // first "node_modules/" segment is immediately followed by ".pnpm/", not "uuid/", which
   // matches the ignore pattern and leaves the ESM file untransformed). Match "uuid"
   // appearing anywhere later in the path instead, so it works regardless of nesting depth.
-  transformIgnorePatterns: ['node_modules/(?!.*uuid)'],
+  transformIgnorePatterns: [
+    'node_modules/(?!.*(@better-auth|better-auth|better-call|rou3|@noble|kysely|uuid|jose))',
+  ],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { useESM: false }],
-    '^.+\\.js$': ['ts-jest', { useESM: false }],
+    '^.+\\.[tj]sx?$': ['ts-jest', { useESM: false, tsconfig: { allowJs: true } }],
+    '^.+\\.mjs$': ['ts-jest', { useESM: false, tsconfig: { allowJs: true } }],
   },
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/server.ts', '!src/worker.ts'],
   coverageDirectory: 'coverage',

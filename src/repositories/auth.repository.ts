@@ -110,23 +110,30 @@ export default class AuthRepo {
 
   static async createSession(data: {
     userId: string;
-    refreshToken: string;
+    refreshToken?: string;
+    token?: string;
     expiresAt: Date;
+    ipAddress?: string;
+    userAgent?: string;
     provider?: string;
     providerUserId?: string;
     providerAvatarUrl?: string;
   }) {
     return prisma.session.create({
       data: {
-        ...data,
+        userId: data.userId,
+        token: data.token || data.refreshToken || crypto.randomUUID(),
+        expiresAt: data.expiresAt,
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
       },
     });
   }
 
-  static async findValidSession(refreshToken: string) {
+  static async findValidSession(tokenOrRefreshToken: string) {
     return prisma.session.findFirst({
       where: {
-        refreshToken,
+        token: tokenOrRefreshToken,
         expiresAt: {
           gt: new Date(),
         },
@@ -137,10 +144,10 @@ export default class AuthRepo {
     });
   }
 
-  static async deleteSession(refreshToken: string) {
+  static async deleteSession(tokenOrRefreshToken: string) {
     return prisma.session.deleteMany({
       where: {
-        refreshToken,
+        token: tokenOrRefreshToken,
       },
     });
   }

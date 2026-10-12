@@ -54,13 +54,23 @@ export async function seedUsers(prisma: PrismaClient) {
       // Hash password using the same method as AuthSvc
       const hashedPassword = await hashPassword(password);
 
-      await prisma.user.create({
+      const newUser = await prisma.user.create({
         data: {
           ...rest,
           password: hashedPassword,
         },
       });
-      console.log(`✅ Created user: ${rest.email}`);
+
+      // Seed Better Auth credential account so user can log in via Better Auth endpoints
+      await prisma.account.create({
+        data: {
+          userId: newUser.id,
+          providerId: 'credential',
+          accountId: newUser.id,
+          password: hashedPassword,
+        },
+      });
+      console.log(`✅ Created user & Better Auth account: ${rest.email}`);
     } else {
       console.log(`ℹ️ User already exists: ${rest.email}`);
     }
