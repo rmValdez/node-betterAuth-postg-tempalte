@@ -46,6 +46,7 @@ export const ORIGIN_SHAPE = /^https?:\/\/[^/]+$/;
  * ============================================================================
  */
 const DEFAULT_ORIGINS = [
+  'http://localhost:4010', // next-betterAuth-template-v1 (paired frontend)
   'http://localhost:4200', // Angular 19 Client (angular-template-v4)
   'http://localhost:3000', // Next.js / Nuxt 3 Client (next-template-v1 / nuxt-template-v2)
   'http://localhost:5173', // Vue 3 / Vite Client (vue-template-v3 / mapanytime-market-web)
@@ -79,7 +80,6 @@ export function isOriginAllowed(
   // Allow curl, Postman, mobile apps, or same-origin server-to-server requests without Origin header
   if (!origin) return true;
   if (process.env.NODE_ENV === 'development') return true;
-  if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) return true;
   return allowed.includes(origin);
 }
 
@@ -105,10 +105,6 @@ export const corsMiddleware = cors({
     'Authorization',
     'X-Requested-With',
     'Accept',
-    'x-tenant-id',
-    'X-Tenant-Id',
-    'x-tenant-slug',
-    'X-Tenant-Slug',
     'x-session-id',
     'X-Session-Id',
     'x-correlation-id',

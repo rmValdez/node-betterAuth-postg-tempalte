@@ -1472,10 +1472,6 @@ export const QUIZ_QUESTIONS_DATA = ANGULAR_100_QUIZ_BANK;
 export async function seedAngularQuizQuestions(prisma: PrismaClient) {
   console.log('Seeding 100 Practical Project-Building Angular Quiz Questions into PostgreSQL...');
 
-  const angularTenant = await prisma.tenant.findUnique({
-    where: { slug: 'angular-v4' }
-  });
-
   for (const q of ANGULAR_100_QUIZ_BANK) {
     await prisma.quizQuestion.upsert({
       where: { id: q.id },
@@ -1487,7 +1483,6 @@ export async function seedAngularQuizQuestions(prisma: PrismaClient) {
         options: q.options,
         correctIndex: q.correctIndex,
         explanation: q.explanation,
-        tenantId: angularTenant?.id || null,
       },
       create: {
         id: q.id,
@@ -1498,7 +1493,6 @@ export async function seedAngularQuizQuestions(prisma: PrismaClient) {
         options: q.options,
         correctIndex: q.correctIndex,
         explanation: q.explanation,
-        tenantId: angularTenant?.id || null,
       }
     });
   }

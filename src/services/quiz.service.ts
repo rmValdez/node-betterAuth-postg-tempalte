@@ -1,20 +1,26 @@
+import { Prisma } from '@prisma/client';
 import QuizRepository from '../repositories/quiz.repository';
 import CacheUtil from '../utils/cache.util';
 
 const QUESTIONS_CACHE_TTL = 600; // 10 minutes
 
+function progressCacheKey(options: { sessionId: string; userId?: string }) {
+  return options.userId
+    ? `quiz:progress:user:${options.userId}`
+    : `quiz:progress:session:${options.sessionId}`;
+}
+
 export default class QuizService {
   /**
-   * Get questions with tenant and filter caching
+   * Get questions with filter caching
    */
   static async getQuestions(options?: {
-    tenantId?: string;
     category?: string;
     difficulty?: string;
     search?: string;
     limit?: number;
   }) {
-    const cacheKey = `quiz:questions:${options?.tenantId || 'all'}:${options?.category || 'all'}:${options?.difficulty || 'all'}:${options?.search || 'all'}:${options?.limit || 0}`;
+    const cacheKey = `quiz:questions:${options?.category || 'all'}:${options?.difficulty || 'all'}:${options?.search || 'all'}:${options?.limit || 0}`;
 
     return CacheUtil.remember(cacheKey, QUESTIONS_CACHE_TTL, async () => {
       const items = await QuizRepository.findAll(options);
@@ -31,42 +37,31 @@ export default class QuizService {
     });
   }
 
-  static async getProgress(options: { tenantId?: string; sessionId: string; userId?: string }) {
-    const key = options.userId
-      ? `quiz:progress:${options.tenantId || 'default'}:user:${options.userId}`
-      : `quiz:progress:${options.tenantId || 'default'}:session:${options.sessionId}`;
-
-    return CacheUtil.remember(key, 60, async () => {
+  static async getProgress(options: { sessionId: string; userId?: string }) {
+    return CacheUtil.remember(progressCacheKey(options), 60, async () => {
       return QuizRepository.getProgress(options);
     });
   }
 
   static async saveProgress(options: {
-    tenantId?: string;
     sessionId: string;
     userId?: string;
-    answers: any;
+    answers: Prisma.InputJsonValue;
     score: number;
     answeredCount: number;
   }) {
     const result = await QuizRepository.saveProgress(options);
 
     // Invalidate progress cache
-    const key = options.userId
-      ? `quiz:progress:${options.tenantId || 'default'}:user:${options.userId}`
-      : `quiz:progress:${options.tenantId || 'default'}:session:${options.sessionId}`;
-    await CacheUtil.del(key);
+    await CacheUtil.del(progressCacheKey(options));
 
     return result;
   }
 
-  static async resetProgress(options: { tenantId?: string; sessionId: string; userId?: string }) {
+  static async resetProgress(options: { sessionId: string; userId?: string }) {
     const result = await QuizRepository.resetProgress(options);
 
-    const key = options.userId
-      ? `quiz:progress:${options.tenantId || 'default'}:user:${options.userId}`
-      : `quiz:progress:${options.tenantId || 'default'}:session:${options.sessionId}`;
-    await CacheUtil.del(key);
+    await CacheUtil.del(progressCacheKey(options));
 
     return result;
   }

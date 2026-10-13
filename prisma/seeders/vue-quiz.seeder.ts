@@ -1511,10 +1511,6 @@ export const VUE_100_QUIZ_BANK: VueQuizQuestionSeed[] = [
 export async function seedVueQuizQuestions(prisma: PrismaClient) {
   console.log('Seeding 100 Vue 3.5 Project-Building Quiz Questions into PostgreSQL...');
 
-  const vueTenant = await prisma.tenant.findUnique({
-    where: { slug: 'vue-v3' }
-  });
-
   for (const q of VUE_100_QUIZ_BANK) {
     await prisma.quizQuestion.upsert({
       where: { id: q.id },
@@ -1526,7 +1522,6 @@ export async function seedVueQuizQuestions(prisma: PrismaClient) {
         options: q.options,
         correctIndex: q.correctIndex,
         explanation: q.explanation,
-        tenantId: vueTenant?.id || null,
       },
       create: {
         id: q.id,
@@ -1537,7 +1532,6 @@ export async function seedVueQuizQuestions(prisma: PrismaClient) {
         options: q.options,
         correctIndex: q.correctIndex,
         explanation: q.explanation,
-        tenantId: vueTenant?.id || null,
       }
     });
   }

@@ -2,6 +2,10 @@
 
 This document is the master specification for the entire **`rm-template`** ecosystem, encompassing our production-ready starters across **Next.js**, **Vue 3**, **Nuxt 3**, **Angular 19**, and **Node.js/PostgreSQL**.
 
+> **This backend differs from the ecosystem defaults below:** it uses Better Auth sessions (no JWT
+> access/refresh tokens) and has no multi-tenancy. See [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
+> for this backend's actual architecture.
+
 ---
 
 ## 🗺️ Master Ecosystem Overview
@@ -48,7 +52,7 @@ Every template in this ecosystem implements the same deterministic security cont
 
 1. **Authentication Endpoints**:
    - `POST /api/auth/login` → Returns `{ user, accessToken, refreshToken }`
-   - `POST /api/auth/register` → Hashes password with `bcryptjs` (10 rounds) & creates tenant
+   - `POST /api/auth/register` → Hashes password with `bcryptjs` (10 rounds) & creates the user
    - `GET /api/auth/me` → Verifies `Authorization: Bearer <accessToken>` and returns identity
    - `POST /api/auth/refresh` → Rotates access/refresh token pair
    - `POST /api/auth/logout` → Clears session tokens

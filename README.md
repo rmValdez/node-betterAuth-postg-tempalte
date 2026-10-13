@@ -7,10 +7,10 @@ A production-ready Node.js backend boilerplate using TypeScript, Express, and Pr
 
 ## Features
 
-- **Better Auth Integration**: Native session management, OAuth (Google/GitHub/Apple), email verification, and password reset.
+- **Better Auth Integration**: Email/password sign-up and sign-in with database-backed sessions. OAuth, email verification and password reset are not configured yet; enable them in `src/auth/better-auth.ts` when a project needs them.
 - **TypeScript**: Typed development with `tsx` and `nodemon`.
 - **Prisma ORM**: Modern database schema & migrations for PostgreSQL.
-- **Multi-Tenant Architecture**: Built-in tenant separation, membership roles, and RBAC.
+- **RBAC**: Role-based route guards (`requireRole`) backed by the `UserRole` enum.
 - **SRC Pattern**: Service-Repository-Controller architectural pattern.
 - **Logging & Observability**: Structured logging with Winston, Sentry telemetry, and Prometheus metrics.
 - **Message Queuing & Cache**: RabbitMQ consumer/publisher infrastructure and Redis caching.

@@ -1874,17 +1874,10 @@ const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost
 export async function seedFlutterQuizQuestions(prisma: PrismaClient) {
   console.log('🌱 Seeding Flutter 100-Question Comprehensive Quiz Bank into PostgreSQL...');
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { slug: 'flutter-v1' },
-  });
-
-  const tenantId = tenant ? tenant.id : undefined;
-
   for (const q of FLUTTER_100_QUIZ_BANK) {
     await prisma.quizQuestion.upsert({
       where: { id: q.id },
       update: {
-        tenantId,
         category: q.category,
         difficulty: q.difficulty,
         question: q.question,
@@ -1895,7 +1888,6 @@ export async function seedFlutterQuizQuestions(prisma: PrismaClient) {
       },
       create: {
         id: q.id,
-        tenantId,
         category: q.category,
         difficulty: q.difficulty,
         question: q.question,

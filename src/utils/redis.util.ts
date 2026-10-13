@@ -20,8 +20,9 @@ export default class RedisUtil {
 
       await this.client.connect();
       console.log(`[Redis] Connected to ${REDIS_HOST}:${REDIS_PORT}`);
-    } catch (err: any) {
-      console.warn(`[Redis] Optional Redis connection skipped: ${err?.message || err}`);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.warn(`[Redis] Optional Redis connection skipped: ${reason}`);
     }
   }
 

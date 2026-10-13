@@ -6,14 +6,15 @@
  *   - name: Users
  *     description: User management and directory queries
  *   - name: Quiz
- *     description: Interactive quiz questions, submissions, and tenant scorecards
+ *     description: Interactive quiz questions, submissions, and scorecards
  */
 
 /**
  * @swagger
- * /v1/auth/register:
+ * /auth/sign-up/email:
  *   post:
- *     summary: Register a new user account
+ *     summary: Register with email and password (Better Auth)
+ *     description: Sets the session cookie and returns `token`, usable as `Authorization: Bearer <token>`.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -21,7 +22,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, password, username]
+ *             required: [email, password, name]
  *             properties:
  *               email:
  *                 type: string
@@ -29,31 +30,26 @@
  *                 example: user@example.com
  *               password:
  *                 type: string
- *                 minLength: 6
+ *                 minLength: 8
  *                 example: Password123!
- *               username:
- *                 type: string
- *                 example: john_doe
  *               name:
  *                 type: string
  *                 example: John Doe
+ *               username:
+ *                 type: string
+ *                 example: john_doe
  *     responses:
- *       201:
- *         description: User registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/SuccessResponse'
+ *       200:
+ *         description: User created and signed in
  *       400:
- *         description: Validation error or duplicate username/email
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Validation error, or a server-managed field (e.g. role) was sent
+ *       422:
+ *         description: Email already in use
  *
- * /v1/auth/login:
+ * /auth/sign-in/email:
  *   post:
- *     summary: Authenticate user credentials and retrieve access/refresh tokens
+ *     summary: Sign in with email and password (Better Auth)
+ *     description: Sets the session cookie and returns `token`, usable as `Authorization: Bearer <token>`.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -72,13 +68,19 @@
  *                 example: Password123!
  *     responses:
  *       200:
- *         description: Login successful
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/SuccessResponse'
+ *         description: Signed in
  *       401:
  *         description: Invalid email or password
+ *
+ * /auth/sign-out:
+ *   post:
+ *     summary: Revoke the current session (Better Auth)
+ *     tags: [Auth]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Signed out
  *
  * /v1/auth/me:
  *   get:
@@ -90,37 +92,7 @@
  *       200:
  *         description: Profile retrieved successfully
  *       401:
- *         description: Missing or expired Bearer token
- *
- * /v1/auth/refresh:
- *   post:
- *     summary: Exchange a refresh token for a new access token
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [refreshToken]
- *             properties:
- *               refreshToken:
- *                 type: string
- *     responses:
- *       200:
- *         description: Tokens refreshed successfully
- *       401:
- *         description: Invalid or expired refresh token
- *
- * /v1/auth/logout:
- *   post:
- *     summary: Invalidate user session and logout
- *     tags: [Auth]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Logged out successfully
- *       401:
- *         description: Unauthorized
+ *         description: No valid session
+ *       403:
+ *         description: Account deactivated
  */

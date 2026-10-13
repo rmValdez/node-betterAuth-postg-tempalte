@@ -12,35 +12,21 @@ function requireSecret(value: string | undefined, names: string): string {
     throw new Error(
       `Missing required environment variable: ${names}. Set it in your .env file ` +
         `(see .env.example) — there is no default fallback for this value because ` +
-        `it is security-sensitive (used to sign JWTs).`,
+        `it is security-sensitive (used to sign session cookies).`,
     );
   }
   return value;
 }
 
-export const PORT = process.env.PORT || 3002;
+export const PORT = process.env.PORT || 4009;
 export const NODE_ENV = process.env.NODE_ENV || 'development';
 
-export const ACCESS_TOKEN_SECRET = requireSecret(
-  process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET,
-  'ACCESS_TOKEN_SECRET (or JWT_SECRET)',
+// Better Auth signs session cookies with this secret.
+export const BETTER_AUTH_SECRET = requireSecret(
+  process.env.BETTER_AUTH_SECRET,
+  'BETTER_AUTH_SECRET',
 );
-export const REFRESH_TOKEN_SECRET = requireSecret(
-  process.env.REFRESH_TOKEN_SECRET || process.env.JWT_REFRESH_SECRET,
-  'REFRESH_TOKEN_SECRET (or JWT_REFRESH_SECRET)',
-);
-export const ACCESS_TOKEN_EXPIRY =
-  process.env.ACCESS_TOKEN_EXPIRY || process.env.JWT_EXPIRY || '1d';
-export const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY || '7d';
-
-// Same class of bug as the JWT secrets above (guessable hardcoded fallback
-// used for cryptographic signing — cookie-parser uses this to sign cookies),
-// so it gets the same required-env-var treatment.
-export const COOKIE_SECRET = requireSecret(
-  process.env.COOKIE_SECRET || process.env.JWT_SECRET,
-  'COOKIE_SECRET (or JWT_SECRET)',
-);
-export const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
+export const BETTER_AUTH_URL = process.env.BETTER_AUTH_URL || `http://localhost:${PORT}`;
 
 export const DATABASE_URL = process.env.DATABASE_URL;
 

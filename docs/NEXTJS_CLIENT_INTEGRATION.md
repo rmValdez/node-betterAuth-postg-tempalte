@@ -7,14 +7,15 @@ This guide details how a **Next.js 15 (App Router)** frontend application integr
 ## 1. Architecture Overview
 
 ```text
-Next.js Frontend (Port 3000)
+Next.js Frontend (Port 4010)
     │
-    │ HTTP / HTTPS with Credentials (Cookie / Bearer)
+    │ HTTP / HTTPS with Credentials (Cookie / Bearer) + Socket.IO
     ▼
-Node.js Express Backend (Port 3002)
+Node.js Express Backend (Port 4009)
     │
-    ├── /api/auth/* ──────────► Better Auth Engine (Single Source of Truth)
-    └── /api/v1/*   ──────────► Business & Domain API (Quizzes, Media, Tenancy)
+    ├── /api/auth/*  ─────────► Better Auth Engine (Single Source of Truth)
+    ├── /api/v1/*    ─────────► Business & Domain API (Users, Quiz, Uploads)
+    └── /socket.io/* ─────────► Realtime (session-authenticated)
 ```
 
 - **Authentication Authority**: The Node.js Express backend owns all authentication credentials, user records, session tokens, and password verification.
@@ -43,26 +44,30 @@ Only the standard API URL is required:
 
 ```env
 # Base URL of the backend REST API
-NEXT_PUBLIC_API_URL=http://localhost:3002/api/v1
+NEXT_PUBLIC_API_URL=http://localhost:4009/api/v1
 
-# Optional: override auth URL if running on a separate host/port
-# NEXT_PUBLIC_AUTH_URL=http://localhost:3002
+# Optional: override if auth or sockets run on a separate host/port
+# NEXT_PUBLIC_AUTH_URL=http://localhost:4009
+# NEXT_PUBLIC_SOCKET_SERVER_URL=http://localhost:4009
 ```
+
+The backend must trust the frontend origin: `CORS_ORIGIN=http://localhost:4010` in the backend `.env`
+(production: your real frontend URL, also via `FRONTEND_URL`).
 
 ### 3.2 URL Resolution (`src/shared/config/api.ts`)
 
-Extract the backend root origin cleanly without extra `.env` variables:
+Everything derives from the backend origin, so no extra `.env` variables are needed:
 
 ```typescript
 import { env } from "@/shared/lib/env";
 
 export const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
 
-/**
- * Derives root origin (e.g. "http://localhost:3002" from "http://localhost:3002/api/v1")
- */
-export const AUTH_BASE_URL =
-  env.NEXT_PUBLIC_AUTH_URL || new URL(env.NEXT_PUBLIC_API_URL).origin;
+/** "http://localhost:4009" from "http://localhost:4009/api/v1" */
+export const API_ORIGIN = new URL(env.NEXT_PUBLIC_API_URL).origin;
+
+export const AUTH_BASE_URL = env.NEXT_PUBLIC_AUTH_URL || API_ORIGIN;
+export const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || API_ORIGIN;
 ```
 
 ---
@@ -93,18 +98,20 @@ export const {
 
 ## 5. Domain API Client (`src/shared/lib/http.ts`)
 
-Ensure your global `fetcher` or Axios instance includes `credentials: "include"`:
+Ensure your global `fetcher` or Axios instance includes `credentials: "include"`.
+Callers pass full paths (`fetcher("/api/v1/users")`), so prefix the **origin**, not
+`NEXT_PUBLIC_API_URL` (which already ends in `/api/v1`):
 
 ```typescript
 export async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
-  const token = getToken(); // Legacy JWT token if present
+  const token = getToken(); // Better Auth session token from sign-in (Bearer fallback)
   const headers = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options?.headers || {}),
   };
 
-  const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${url}`, {
+  const res = await fetch(`${API_ORIGIN}${url}`, {
     credentials: "include", // Transmits Better Auth session cookies
     ...options,
     headers,

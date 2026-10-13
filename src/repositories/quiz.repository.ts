@@ -1,18 +1,14 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 
 export default class QuizRepository {
   static async findAll(options?: {
-    tenantId?: string;
     category?: string;
     difficulty?: string;
     search?: string;
     limit?: number;
   }) {
-    const where: any = {};
-
-    if (options?.tenantId) {
-      where.OR = [{ tenantId: options.tenantId }, { tenantId: null }];
-    }
+    const where: Prisma.QuizQuestionWhereInput = {};
 
     if (options?.category && options.category !== 'ALL') {
       where.category = options.category;
@@ -47,22 +43,19 @@ export default class QuizRepository {
   /**
    * Get user or session quiz progress from PostgreSQL
    */
-  static async getProgress(options: { tenantId?: string; sessionId: string; userId?: string }) {
-    const { tenantId, sessionId, userId } = options;
+  static async getProgress(options: { sessionId: string; userId?: string }) {
+    const { sessionId, userId } = options;
 
     if (userId) {
       const byUser = await prisma.quizProgress.findFirst({
-        where: { userId, tenantId: tenantId || null },
+        where: { userId },
         orderBy: { updatedAt: 'desc' },
       });
       if (byUser) return byUser;
     }
 
-    return prisma.quizProgress.findFirst({
-      where: {
-        sessionId,
-        tenantId: tenantId || null,
-      },
+    return prisma.quizProgress.findUnique({
+      where: { sessionId },
     });
   }
 
@@ -70,16 +63,15 @@ export default class QuizRepository {
    * Save or update quiz progress in PostgreSQL
    */
   static async saveProgress(options: {
-    tenantId?: string;
     sessionId: string;
     userId?: string;
-    answers: any;
+    answers: Prisma.InputJsonValue;
     score: number;
     answeredCount: number;
   }) {
-    const { tenantId, sessionId, userId, answers, score, answeredCount } = options;
+    const { sessionId, userId, answers, score, answeredCount } = options;
 
-    const existing = await this.getProgress({ tenantId, sessionId, userId });
+    const existing = await this.getProgress({ sessionId, userId });
 
     if (existing) {
       return prisma.quizProgress.update({
@@ -95,7 +87,6 @@ export default class QuizRepository {
 
     return prisma.quizProgress.create({
       data: {
-        tenantId: tenantId || null,
         sessionId,
         userId: userId || null,
         answers,
@@ -108,7 +99,7 @@ export default class QuizRepository {
   /**
    * Reset / clear quiz progress in PostgreSQL
    */
-  static async resetProgress(options: { tenantId?: string; sessionId: string; userId?: string }) {
+  static async resetProgress(options: { sessionId: string; userId?: string }) {
     const existing = await this.getProgress(options);
     if (existing) {
       return prisma.quizProgress.update({
