@@ -14,8 +14,27 @@ jobs:
   validate:
     name: Lint, Type Check & Build
     runs-on: ubuntu-latest
-    # Dummy values: src/config.ts refuses to load without these secrets.
-    # CI never talks to a real auth/session store, so they need not be secret.
+    timeout-minutes: 15
+
+    # Real Postgres so the committed migrations and seeders are exercised on
+    # every push, not just the TypeScript that talks to them.
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # Dummy values: src/config.ts refuses to load without BETTER_AUTH_SECRET.
+    # The database is the throwaway service container above.
     env:
       NODE_ENV: test
       BETTER_AUTH_SECRET: ci-better-auth-secret-not-for-production-use
@@ -38,6 +57,23 @@ jobs:
 
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Apply Prisma migrations
+        run: npx prisma migrate deploy
+
+      - name: Check schema matches migrations
+        # Fails if schema.prisma was changed without a matching migration.
+        # Prisma resets the shadow database, so it must not be the CI database.
+        run: |
+          echo "CREATE DATABASE ci_shadow;" | npx prisma db execute --stdin --url "$DATABASE_URL"
+          npx prisma migrate diff \
+            --from-migrations prisma/migrations \
+            --to-schema-datamodel prisma/schema.prisma \
+            --shadow-database-url "postgresql://ci:ci@localhost:5432/ci_shadow?schema=public" \
+            --exit-code
+
+      - name: Seed database
+        run: pnpm run db:seed
 
       - name: Architecture Boundary Validation
         run: pnpm run validate
