@@ -20,7 +20,8 @@ describe('AuthController', () => {
 
       const app = express();
       app.get('/auth/me', (req, res, next) => {
-        req.user = { id: 'test-user-id' };
+        // Only `.id` is read by the controller; a full Better Auth user isn't needed here
+        req.user = { id: 'test-user-id' } as Express.Request['user'];
         AuthController.me(req, res, next);
       });
 

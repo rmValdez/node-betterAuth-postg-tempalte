@@ -14,7 +14,7 @@
  * /auth/sign-up/email:
  *   post:
  *     summary: Register with email and password (Better Auth)
- *     description: Sets the session cookie and returns `token`, usable as `Authorization: Bearer <token>`.
+ *     description: "Sets the session cookie and returns `token`, usable as `Authorization: Bearer <token>`."
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -49,7 +49,7 @@
  * /auth/sign-in/email:
  *   post:
  *     summary: Sign in with email and password (Better Auth)
- *     description: Sets the session cookie and returns `token`, usable as `Authorization: Bearer <token>`.
+ *     description: "Sets the session cookie and returns `token`, usable as `Authorization: Bearer <token>`."
  *     tags: [Auth]
  *     requestBody:
  *       required: true
