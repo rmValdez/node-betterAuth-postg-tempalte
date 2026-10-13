@@ -8,14 +8,18 @@ This document details database setup, Prisma seeders, credentials, and CORS conf
 
 The backend uses **Prisma** with **PostgreSQL**.
 
-### Push Schema to Database
-To create or update all database tables (`tenants`, `users`, `quiz_questions`, `quiz_progress`, `roles`, etc.):
+### Apply Migrations
+The schema is versioned in `prisma/migrations`. To create or update all tables
+(`users`, `sessions`, `accounts`, `quiz_questions`, `quiz_progress`, etc.):
 ```bash
-npx prisma db push
+pnpm run db:setup          # prisma generate + migrate dev (local development)
+npx prisma migrate deploy  # production / CI (the Docker image runs this on start)
 ```
+After changing `prisma/schema.prisma`, create a new migration with
+`npx prisma migrate dev --name <change>` and commit it.
 
 ### Seed Database
-To populate essential data (tenants, default users, and 100 Flutter quiz questions):
+To populate essential data (default users and the Angular, Vue and Flutter quiz banks):
 ```bash
 npx prisma db seed
 ```
@@ -48,43 +52,33 @@ The CORS middleware is configured in [`src/middleware/cors.middleware.ts`](file:
 
 ### Allowed Headers
 - `Content-Type`, `Authorization`, `Accept`, `Origin`, `X-Requested-With`
-- `x-tenant-slug`, `X-Tenant-Slug`
 - `x-session-id`, `X-Session-Id`
-- `x-tenant-id`, `X-Tenant-Id`
+- `x-correlation-id`, `X-Correlation-Id`
 
 ---
 
-## 🛣️ 4. Key Route Aliases
+## 🛣️ 4. Key Routes
 
-Both route conventions are supported:
-- Direct: `POST /api/v1/login`, `POST /api/v1/register`
-- Auth nested: `POST /api/v1/auth/login`, `POST /api/v1/auth/register`
-- Quiz questions: `GET /api/v1/quiz/questions`
-- Quiz progress: `POST /api/v1/quiz/progress`
+- Auth (Better Auth): `POST /api/auth/sign-up/email`, `POST /api/auth/sign-in/email`, `POST /api/auth/sign-out`, `GET /api/auth/get-session`
+- Profile + permissions: `GET /api/v1/auth/me`
+- Quiz questions: `GET /api/v1/quiz`, `GET /api/v1/quiz/:id`
+- Quiz progress: `GET|POST /api/v1/quiz/progress`, `POST /api/v1/quiz/progress/reset`
+  (signed-in users are identified by their session; guests must send `x-session-id`)
 
 ---
 
-## 🍪 5. HTTP-Only Cookie Authentication
+## 🍪 5. Authentication (Better Auth sessions)
 
-The API supports dual authentication modes: **HTTP-only Cookies** (recommended for Web browsers) and **Bearer Authorization headers** (for mobile apps, CLI, and external API clients).
+Better Auth is the only authentication system. Sessions are stored in the `sessions` table and identified two ways:
 
-### Cookie Configuration
-| Cookie Name | Purpose | Flags | Expiration |
-|---|---|---|---|
-| `accessToken` | Access token for API authorization | `httpOnly: true`, `sameSite: 'lax'` (or `'none'` in prod HTTPS), `path: '/'` | 1 day (`ACCESS_TOKEN_EXPIRY`) |
-| `refreshToken` | Long-lived session token used to issue new access tokens | `httpOnly: true`, `sameSite: 'lax'` (or `'none'` in prod HTTPS), `path: '/'` | 7 days (`REFRESH_TOKEN_EXPIRY`) |
+1. **Browsers — session cookie.** Sign-in / sign-up set the httpOnly `better-auth.session_token` cookie.
+   Send it on API calls with `fetch(url, { credentials: 'include' })`, or `withCredentials: true` (Axios, Socket.IO).
+2. **Mobile / CLI / Postman — Bearer token.** Sign-in / sign-up also return a `token`; send it as
+   `Authorization: Bearer <token>` (enabled by the Better Auth `bearer` plugin).
 
-### How It Works
-1. **Login & Register**:
-   - Responding to `POST /api/v1/auth/login` or `POST /api/v1/auth/register` sets `accessToken` and `refreshToken` cookies automatically via `Set-Cookie`.
-   - The JSON body still returns `{ accessToken, refreshToken, user }` for non-cookie clients.
-2. **Authenticated Requests**:
-   - Web clients include cookies automatically when credentials are enabled:
-     - `fetch('/api/v1/auth/me', { credentials: 'include' })`
-     - Axios / Dio: `withCredentials: true`
-   - The `authenticate` middleware checks `req.cookies.accessToken` first, falling back to `Authorization: Bearer <token>`.
-3. **Token Refresh**:
-   - `POST /api/v1/auth/refresh` reads `refreshToken` from the cookie (or JSON body `{ refreshToken: "..." }`) and writes a new `accessToken` cookie.
-4. **Logout**:
-   - `POST /api/v1/auth/logout` invalidates the database session and clears both `accessToken` and `refreshToken` cookies.
+Sessions last 7 days and are refreshed daily while in use (`session` options in `src/auth/better-auth.ts`).
+Sign out with `POST /api/auth/sign-out`, which revokes the session server-side.
+
+Roles and account flags (`role`, `isActive`, `isDeleted`, `onboardingCompleted`) are server-managed:
+clients cannot set them through sign-up or update-user.
 

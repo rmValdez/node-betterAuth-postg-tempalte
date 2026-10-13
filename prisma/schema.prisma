@@ -7,64 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum TenantRole {
-  OWNER
-  ADMIN
-  MANAGER
-  MEMBER
-  VIEWER
-}
-
-enum TenantStatus {
-  ACTIVE
-  SUSPENDED
-  DELETED
-}
-
-model Tenant {
-  id          String         @id @default(uuid())
-  slug        String         @unique // "angular-v4", "next-v1", "vue-v3", "nuxt-v2", "default"
-  name        String
-  domain      String?        @unique // Custom domain support (e.g., app.customdomain.com)
-  description String?
-  status      TenantStatus   @default(ACTIVE)
-  isActive    Boolean        @default(true)
-  settings    Json?          // Tenant-specific branding, theme, configuration
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  users       User[]
-  memberships TenantMembership[]
-  quizQuestions QuizQuestion[]
-  quizProgress QuizProgress[]
-
-  @@map("tenants")
-}
-
-model TenantMembership {
-  id        String     @id @default(uuid())
-  tenantId  String
-  userId    String
-  role      TenantRole @default(MEMBER)
-  status    String     @default("ACTIVE")
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, userId])
-  @@index([tenantId])
-  @@index([userId])
-  @@map("tenant_memberships")
-}
-
 model User {
   id                  String             @id @default(uuid())
-  tenantId            String?
-  email               String             @unique
+  email              String             @unique
   emailVerified       Boolean            @default(false)
-  password            String?            // Optional for OAuth users or credential accounts
   name                String?
   image               String?
   username            String?            @unique
@@ -77,15 +23,12 @@ model User {
   isDeleted           Boolean            @default(false)
   isEmailVerified     Boolean            @default(true)
   onboardingCompleted Boolean            @default(false)
-  
-  tenant              Tenant?            @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
   avatar              File?              @relation("UserAvatar", fields: [avatarId], references: [id])
   sessions            Session[]
   accounts            Account[]
-  memberships         TenantMembership[]
   quizProgress        QuizProgress[]
 
-  @@index([tenantId])
   @@map("users")
 }
 
@@ -163,7 +106,6 @@ enum UserRole {
 
 model QuizQuestion {
   id           Int      @id
-  tenantId     String?
   category     String
   difficulty   String   @default("INTERMEDIATE") // BEGINNER | INTERMEDIATE | ADVANCED | EXPERT
   question     String   @db.Text
@@ -174,9 +116,6 @@ model QuizQuestion {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
   @@index([category])
   @@index([difficulty])
   @@map("quiz_questions")
@@ -184,20 +123,16 @@ model QuizQuestion {
 
 model QuizProgress {
   id            String   @id @default(uuid())
-  tenantId      String?
   userId        String?
-  sessionId     String   @default("default-session")
+  sessionId     String   @unique @default("default-session")
   answers       Json     @default("{}")
   score         Int      @default(0)
   answeredCount Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@unique([tenantId, sessionId])
-  @@index([tenantId])
   @@index([userId])
   @@map("quiz_progress")
 }

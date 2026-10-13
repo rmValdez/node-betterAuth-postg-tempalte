@@ -34,8 +34,7 @@ Open `.env` and set the required values:
 
 ```env
 DATABASE_URL="postgresql://postgres:password@localhost:5432/myapp?schema=public"
-ACCESS_TOKEN_SECRET="generate-a-strong-secret-here"
-REFRESH_TOKEN_SECRET="generate-another-strong-secret-here"
+BETTER_AUTH_SECRET="generate-a-strong-secret-here"
 ```
 
 > **Tip**: Generate secrets with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
@@ -92,10 +91,10 @@ npm run worker
 
 ```bash
 # Liveness check
-curl http://localhost:3002/api/health/live
+curl http://localhost:4009/api/health/live
 
 # Readiness check (all services)
-curl http://localhost:3002/api/health/ready
+curl http://localhost:4009/api/health/ready
 ```
 
 Expected response:
@@ -111,7 +110,7 @@ Expected response:
 
 ## Step 7 — Explore the API Docs
 
-Open [http://localhost:3002/api/docs](http://localhost:3002/api/docs) in your browser.
+Open [http://localhost:4009/api/docs](http://localhost:4009/api/docs) in your browser.
 
 > Swagger UI is only enabled in `development` mode.
 
@@ -121,8 +120,8 @@ Open [http://localhost:3002/api/docs](http://localhost:3002/api/docs) in your br
 
 | Service       | URL                              | Credentials   |
 | ------------- | -------------------------------- | ------------- |
-| API Server    | `http://localhost:3002`          | —             |
-| Swagger Docs  | `http://localhost:3002/api/docs` | —             |
+| API Server    | `http://localhost:4009`          | —             |
+| Swagger Docs  | `http://localhost:4009/api/docs` | —             |
 | RabbitMQ UI   | `http://localhost:15672`         | guest / guest |
 | Worker Health | `http://localhost:8080/health`   | —             |
 
@@ -136,7 +135,7 @@ npm run worker       # Start Worker with hot reload
 npm test             # Run all tests
 npm run db:setup     # Run Prisma migrations
 npm run lint         # Lint and auto-fix
-npm run kill-port    # Something stuck on port 3002 (EADDRINUSE)? Run this.
+npm run kill-port    # Something stuck on port 4009 (EADDRINUSE)? Run this.
 ```
 
 ---

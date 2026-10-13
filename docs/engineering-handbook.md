@@ -115,25 +115,25 @@ src/infrastructure/
 This is how you verify the system works end-to-end:
 
 ```bash
-# 0. POST /v1/users requires an ADMIN+ role — log in as a seeded admin first
-#    (see prisma/seeders/users.seeder.ts) and grab the accessToken
-TOKEN="<accessToken from POST /v1/auth/login>"
+# 0. GET /v1/users requires an ADMIN+ role — sign in as a seeded admin first
+#    (see prisma/seeders/users.seeder.ts) and grab the session token
+TOKEN=$(curl -s -X POST http://localhost:4009/api/auth/sign-in/email \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@example.com", "password": "Password123!" }' | jq -r .token)
 
 # 1. Send a request with a correlation ID
-curl -X POST http://localhost:5002/api/v1/users \
+curl http://localhost:4009/api/v1/users \
   -H "Authorization: Bearer $TOKEN" \
-  -H "x-correlation-id: test-trace-001" \
-  -H "Content-Type: application/json" \
-  -d '{ "email": "test@example.com", "password": "Test1234!", "username": "testuser" }'
+  -H "x-correlation-id: test-trace-001"
 
-# In your API logs:
-# 10:00:00 info [corr:test-trace-001]: User created successfully
-
-# In your Worker logs (different process):
-# 10:00:00 info [corr:test-trace-001]: Sending welcome email
+# 2. The response echoes the header, and every API log line for this request
+#    is tagged with it:
+# 10:00:00 info [corr:test-trace-001]: ...
 ```
 
-Same `correlationId` in both processes = full distributed trace.
+Any event published while handling the request carries the same `correlationId`,
+so the worker's log lines for that event share the tag. Same `correlationId` in
+both processes = full distributed trace.
 
 ---
 
@@ -396,8 +396,8 @@ All checks must pass before merging to `main`.
 Before deploying to production:
 
 - [ ] All environment variables set (check against `.env.example`)
-- [ ] `ACCESS_TOKEN_SECRET` / `REFRESH_TOKEN_SECRET` set to strong unique
-      values — app refuses to start in production on the insecure defaults
+- [ ] `BETTER_AUTH_SECRET` set to a strong unique value — the app refuses
+      to start without it; `BETTER_AUTH_URL` set to the public API URL
 - [ ] `CORS_ORIGIN` set to your real frontend origin(s) — production has no
       wildcard fallback
 - [ ] `REDIS_TLS=true` if using managed Redis (ElastiCache, Upstash)

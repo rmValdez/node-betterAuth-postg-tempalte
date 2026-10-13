@@ -14,9 +14,8 @@ export default class UserService {
       if (!user) {
         throw { status: 404, message: 'User not found' };
       }
-      const { password: _password, ...userWithoutPassword } = user;
       return {
-        ...userWithoutPassword,
+        ...user,
         permissions: getPermissionsForRole(user.role),
       };
     });
@@ -31,7 +30,7 @@ export default class UserService {
       const result = await UserRepository.findAll(page, limit);
       return {
         ...result,
-        users: result.users.map((u: any) => ({
+        users: result.users.map((u) => ({
           ...u,
           permissions: getPermissionsForRole(u.role),
         })),

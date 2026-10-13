@@ -13,7 +13,8 @@ export const requireRole = (...roles: UserRole[]) => {
     const role = req.user?.role;
     if (!role) return responseError(res, 401, 'Unauthorized');
 
-    if (!roles.includes(role)) {
+    // Better Auth types `role` as a plain string; compare as strings
+    if (!(roles as string[]).includes(role)) {
       return responseError(res, 403, 'Forbidden: insufficient role');
     }
 

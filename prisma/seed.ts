@@ -1,5 +1,4 @@
 import { PrismaClient } from "@prisma/client";
-import { seedTenants } from "./seeders/tenants.seeder";
 import { seedUsers } from "./seeders/users.seeder";
 import { seedAngularQuizQuestions } from "./seeders/angular-quiz.seeder";
 import { seedVueQuizQuestions } from "./seeders/vue-quiz.seeder";
@@ -11,7 +10,6 @@ async function main() {
   console.log("🌱 Starting modular database seeding...");
 
   try {
-    await seedTenants(prisma);
     await seedUsers(prisma);
     await seedAngularQuizQuestions(prisma);
     await seedVueQuizQuestions(prisma);

@@ -7,7 +7,7 @@ Reference documentation for building and consuming the REST API.
 ## Base URL
 
 ```
-http://localhost:3002/api
+http://localhost:4009/api
 ```
 
 All endpoints are prefixed with `/api/v1` except health checks.
@@ -16,26 +16,27 @@ All endpoints are prefixed with `/api/v1` except health checks.
 
 ## Authentication
 
-This API uses **JWT Bearer tokens**.
+This API uses **Better Auth sessions**.
 
-### Register / Login Flow
-
-```
-POST /api/v1/auth/register       → returns { message, data: { user, accessToken, refreshToken } }
-POST /api/v1/auth/login          → returns { message, data: { user, accessToken, refreshToken } }
-POST /api/v1/auth/refresh        → exchange refreshToken for a new accessToken
-POST /api/v1/auth/logout         → invalidate session
-```
-
-### Using the Token
-
-Add the access token to every authenticated request:
+### Sign-up / Sign-in Flow
 
 ```
-Authorization: Bearer <accessToken>
+POST /api/auth/sign-up/email     → { token, user }   body: { email, password, name, username? }
+POST /api/auth/sign-in/email     → { token, user }   body: { email, password }
+POST /api/auth/sign-out          → revoke the session
+GET  /api/v1/auth/me             → profile + role permissions for the session user
 ```
 
-Tokens expire after `15m` by default (`ACCESS_TOKEN_EXPIRY` in `.env`), with refresh tokens expiring after `7d` (`REFRESH_TOKEN_EXPIRY`).
+### Using the Session
+
+Browsers get an httpOnly session cookie; send it with `credentials: 'include'`.
+Other clients (mobile, Postman) send the returned `token`:
+
+```
+Authorization: Bearer <token>
+```
+
+Sessions expire after 7 days and are refreshed daily while in use. There is no separate refresh-token step.
 
 ---
 
@@ -187,36 +188,32 @@ x-correlation-id: my-trace-id-12345
 
 ### Authentication
 
-| Method | Endpoint                     | Auth | Description          |
-| ------ | ---------------------------- | ---- | -------------------- |
-| `POST` | `/api/v1/auth/register`      | ❌   | Create account       |
-| `POST` | `/api/v1/auth/login`         | ❌   | Sign in              |
-| `POST` | `/api/v1/auth/refresh-token` | ❌   | Refresh access token |
-| `POST` | `/api/v1/auth/logout`        | ✅   | Sign out             |
+| Method | Endpoint                  | Auth | Description                       |
+| ------ | ------------------------- | ---- | --------------------------------- |
+| `POST` | `/api/auth/sign-up/email` | ❌   | Create account and start session  |
+| `POST` | `/api/auth/sign-in/email` | ❌   | Sign in                           |
+| `POST` | `/api/auth/sign-out`      | ✅   | Sign out (revokes the session)    |
+| `GET`  | `/api/v1/auth/me`         | ✅   | Profile, role and permissions     |
 
-**Register request** (`username` is required, `name` is optional):
+**Sign-up request** (min. 8-character password; `username` is optional; `role` and
+other server-managed fields are rejected or ignored):
 
 ```json
 {
   "email": "user@example.com",
   "password": "MySecureP@ssw0rd!",
+  "name": "Some User",
   "username": "someuser"
 }
 ```
 
-**Login response** — note: auth endpoints don't use the standard
-`{status, statusCode, data}` envelope (see [Response Format](#response-format))
-— `login`/`register` wrap in `{message, data}`, and `refresh-token` returns a
-bare object with no wrapper at all:
+**Sign-in response** — Better Auth's own format, not the standard
+`{status, statusCode, data}` envelope (see [Response Format](#response-format)):
 
 ```json
 {
-  "message": "Login successful",
-  "data": {
-    "accessToken": "eyJhbGc...",
-    "refreshToken": "eyJhbGc...",
-    "user": { "id": "uuid", "email": "user@example.com", "role": "USER", "...": "..." }
-  }
+  "token": "session-token",
+  "user": { "id": "uuid", "email": "user@example.com", "role": "USER", "...": "..." }
 }
 ```
 
@@ -228,7 +225,6 @@ bare object with no wrapper at all:
 | ------ | ------------------ | ---- | --------------------------------------------------- |
 | `GET`  | `/api/v1/users/me` | ✅   | Get authenticated user's profile                    |
 | `GET`  | `/api/v1/users`    | ✅   | List all users (paginated) — `ADMIN`+ role required |
-| `POST` | `/api/v1/users`    | ✅   | Create a new user — `ADMIN`+ role required          |
 
 ---
 

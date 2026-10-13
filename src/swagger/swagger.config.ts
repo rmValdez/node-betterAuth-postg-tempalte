@@ -8,7 +8,7 @@ const options: swaggerJsdoc.Options = {
       title: 'Node PostgreSQL Backend Template API',
       version: '1.0.0',
       description:
-        'Enterprise-grade Node.js/TypeScript backend boilerplate with Prisma ORM, PostgreSQL, Redis caching, RBAC permissions, and multi-tenancy.',
+        'Enterprise-grade Node.js/TypeScript backend boilerplate with Prisma ORM, PostgreSQL, Redis caching, Better Auth sessions, and RBAC permissions.',
       contact: {
         name: 'API Support',
       },
@@ -24,14 +24,8 @@ const options: swaggerJsdoc.Options = {
         BearerAuth: {
           type: 'http',
           scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Enter your JWT access token.',
-        },
-        TenantHeader: {
-          type: 'apiKey',
-          in: 'header',
-          name: 'x-tenant-id',
-          description: 'Optional tenant slug header (e.g., "angular-v4", "vue-v3", "default")',
+          description:
+            'Better Auth session token (the `token` returned by /auth/sign-in/email or /auth/sign-up/email).',
         },
       },
       schemas: {

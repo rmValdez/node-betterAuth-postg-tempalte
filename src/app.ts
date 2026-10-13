@@ -1,12 +1,9 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
 import router from './routes';
-import { isDev, COOKIE_SECRET } from './config';
-import setup from './setup';
+import { isDev } from './config';
 import { corsMiddleware } from './middleware/cors.middleware';
-import { tenantMiddleware } from './middleware/tenant.middleware';
 import { errorHandler } from './middleware/error.middleware';
 import { correlationMiddleware } from './middleware/correlation.middleware';
 import { setupSwagger } from './swagger';
@@ -20,8 +17,6 @@ app.set('trust proxy', 1);
 app.use(correlationMiddleware);
 app.use(corsMiddleware);
 app.options('*', corsMiddleware);
-app.use(cookieParser(COOKIE_SECRET));
-app.use(tenantMiddleware);
 
 // Better Auth endpoint (handles /api/auth/sign-in, sign-up, session, etc.)
 app.all(['/api/auth', '/api/auth/*'], toNodeHandler(auth));
@@ -49,10 +44,5 @@ app.use('/api', router);
 
 // Error Handling
 app.use(errorHandler);
-
-// Run setup
-setup().catch((err) => {
-  console.log('Setup failed:', err);
-});
 
 export default app;

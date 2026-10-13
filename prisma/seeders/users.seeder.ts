@@ -51,17 +51,14 @@ export async function seedUsers(prisma: PrismaClient) {
     });
 
     if (!existingUser) {
-      // Hash password using the same method as AuthSvc
+      // Same hasher Better Auth is configured with (src/auth/better-auth.ts)
       const hashedPassword = await hashPassword(password);
 
       const newUser = await prisma.user.create({
-        data: {
-          ...rest,
-          password: hashedPassword,
-        },
+        data: rest,
       });
 
-      // Seed Better Auth credential account so user can log in via Better Auth endpoints
+      // Better Auth stores credentials on the `credential` account, not the user row
       await prisma.account.create({
         data: {
           userId: newUser.id,

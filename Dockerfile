@@ -25,6 +25,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 
-EXPOSE 3002
+EXPOSE 4009
 
-CMD ["node", "./dist/src/server.js"]
+# Apply pending Prisma migrations (prisma/migrations), then start the API
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node ./dist/src/server.js"]

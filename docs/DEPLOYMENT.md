@@ -29,12 +29,11 @@ PORT=5002
 # Database
 DATABASE_URL=postgresql://user:password@db-host:5432/dbname?schema=public
 
-# Authentication (JWT)
-# Generate new secrets: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-ACCESS_TOKEN_SECRET=<your-random-secret-32-chars>
-REFRESH_TOKEN_SECRET=<your-random-secret-32-chars>
-ACCESS_TOKEN_EXPIRY=1d
-REFRESH_TOKEN_EXPIRY=7d
+# Authentication (Better Auth)
+# Generate a secret: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+BETTER_AUTH_SECRET=<your-random-secret-32-chars>
+BETTER_AUTH_URL=https://api.yourdomain.com
+FRONTEND_URL=https://app.yourdomain.com
 
 # Cache & Message Queue
 REDIS_HOST=redis-host
@@ -197,8 +196,8 @@ heroku addons:create heroku-postgresql:standard-0 --app your-app-name
 
 ```bash
 heroku config:set NODE_ENV=production --app your-app-name
-heroku config:set ACCESS_TOKEN_SECRET=$(openssl rand -hex 16) --app your-app-name
-heroku config:set REFRESH_TOKEN_SECRET=$(openssl rand -hex 16) --app your-app-name
+heroku config:set BETTER_AUTH_SECRET=$(openssl rand -hex 32) --app your-app-name
+heroku config:set BETTER_AUTH_URL=https://your-app-name.herokuapp.com --app your-app-name
 # ... set other vars
 ```
 

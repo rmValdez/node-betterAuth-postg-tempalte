@@ -14,6 +14,12 @@ jobs:
   validate:
     name: Lint, Type Check & Build
     runs-on: ubuntu-latest
+    # Dummy values: src/config.ts refuses to load without these secrets.
+    # CI never talks to a real auth/session store, so they need not be secret.
+    env:
+      NODE_ENV: test
+      BETTER_AUTH_SECRET: ci-better-auth-secret-not-for-production-use
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

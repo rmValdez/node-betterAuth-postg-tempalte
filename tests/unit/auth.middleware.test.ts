@@ -1,13 +1,8 @@
 import request from 'supertest';
 import express, { Express } from 'express';
-import cookieParser from 'cookie-parser';
-import jwt from 'jsonwebtoken';
-import { authenticate } from '../../src/middleware/auth.middleware';
+import { authenticate, optionalAuth } from '../../src/middleware/auth.middleware';
 import { auth } from '../../src/auth/better-auth';
-import AuthRepo from '../../src/repositories/auth.repository';
-import { ACCESS_TOKEN_SECRET } from '../../src/config';
 
-jest.mock('../../src/repositories/auth.repository');
 jest.mock('../../src/auth/better-auth', () => ({
   auth: {
     api: {
@@ -16,127 +11,112 @@ jest.mock('../../src/auth/better-auth', () => ({
   },
 }));
 
-describe('Auth Middleware (Cookies & Bearer Header)', () => {
-  let app: Express;
+const getSession = auth.api.getSession as unknown as jest.Mock;
 
-  const mockUser = {
-    id: 'user-cookie-123',
-    email: 'cookieuser@example.com',
-    username: 'cookieuser',
+const activeSession = {
+  user: {
+    id: 'better-auth-user-1',
+    email: 'betterauth@example.com',
     role: 'USER',
+    isActive: true,
     isDeleted: false,
-  };
+  },
+  session: { id: 'session-123', token: 'token-abc' },
+};
+
+const deactivatedSession = {
+  ...activeSession,
+  user: { ...activeSession.user, id: 'deactivated-user', isActive: false },
+};
+
+describe('Auth Middleware (Better Auth sessions)', () => {
+  let app: Express;
 
   beforeAll(() => {
     app = express();
-    app.use(cookieParser());
-    app.use(express.json());
-
     app.get('/protected', authenticate, (req, res) => {
       res.json({ message: 'Access granted', user: req.user });
+    });
+    app.get('/optional', optionalAuth, (req, res) => {
+      res.json({ user: req.user ?? null });
     });
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (auth.api.getSession as unknown as jest.Mock).mockResolvedValue(null);
-    (AuthRepo.findUserById as jest.Mock).mockResolvedValue(mockUser);
+    getSession.mockResolvedValue(null);
   });
 
-  it('should authenticate successfully using accessToken cookie', async () => {
-    const validToken = jwt.sign({ userId: mockUser.id }, ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+  describe('authenticate', () => {
+    it('authenticates with a valid Better Auth session', async () => {
+      getSession.mockResolvedValueOnce(activeSession);
 
-    const response = await request(app)
-      .get('/protected')
-      .set('Cookie', [`accessToken=${validToken}`]);
+      const response = await request(app)
+        .get('/protected')
+        .set('Cookie', ['better-auth.session_token=token-abc']);
 
-    expect(response.status).toBe(200);
-    expect(response.body.message).toBe('Access granted');
-    expect(response.body.user.id).toBe(mockUser.id);
-  });
-
-  it('should authenticate successfully using access_token snake_case cookie', async () => {
-    const validToken = jwt.sign({ userId: mockUser.id }, ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
-
-    const response = await request(app)
-      .get('/protected')
-      .set('Cookie', [`access_token=${validToken}`]);
-
-    expect(response.status).toBe(200);
-    expect(response.body.message).toBe('Access granted');
-    expect(response.body.user.id).toBe(mockUser.id);
-  });
-
-  it('should authenticate successfully using Bearer Authorization header', async () => {
-    const validToken = jwt.sign({ userId: mockUser.id }, ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
-
-    const response = await request(app)
-      .get('/protected')
-      .set('Authorization', `Bearer ${validToken}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body.message).toBe('Access granted');
-    expect(response.body.user.id).toBe(mockUser.id);
-  });
-
-  it('should reject request when neither cookie nor header is provided', async () => {
-    const response = await request(app).get('/protected');
-
-    expect(response.status).toBe(401);
-    expect(response.body.message).toBe('No token provided');
-  });
-
-  it('should reject request with invalid token in cookie', async () => {
-    const response = await request(app)
-      .get('/protected')
-      .set('Cookie', ['accessToken=invalid-signature-token']);
-
-    expect(response.status).toBe(401);
-    expect(response.body.message).toBe('Invalid token');
-  });
-
-  it('should authenticate successfully using Better Auth session', async () => {
-    (auth.api.getSession as unknown as jest.Mock).mockResolvedValueOnce({
-      user: {
-        id: 'better-auth-user-1',
-        email: 'betterauth@example.com',
-        role: 'USER',
-        isActive: true,
-      },
-      session: {
-        id: 'session-123',
-        token: 'token-abc',
-      },
+      expect(response.status).toBe(200);
+      expect(response.body.user.id).toBe('better-auth-user-1');
     });
 
-    const response = await request(app)
-      .get('/protected')
-      .set('Cookie', ['better-auth.session_token=token-abc']);
+    it('passes the request headers (cookie or Bearer) to Better Auth', async () => {
+      getSession.mockResolvedValueOnce(activeSession);
 
-    expect(response.status).toBe(200);
-    expect(response.body.message).toBe('Access granted');
-    expect(response.body.user.id).toBe('better-auth-user-1');
-  });
+      await request(app).get('/protected').set('Authorization', 'Bearer token-abc');
 
-  it('should reject request when Better Auth user account is deactivated', async () => {
-    (auth.api.getSession as unknown as jest.Mock).mockResolvedValueOnce({
-      user: {
-        id: 'deactivated-user',
-        email: 'deactivated@example.com',
-        role: 'USER',
-        isActive: false,
-      },
-      session: {
-        id: 'session-456',
-        token: 'token-xyz',
-      },
+      const headers = getSession.mock.calls[0][0].headers as Headers;
+      expect(headers.get('authorization')).toBe('Bearer token-abc');
     });
 
-    const response = await request(app)
-      .get('/protected')
-      .set('Cookie', ['better-auth.session_token=token-xyz']);
+    it('rejects requests without a session', async () => {
+      const response = await request(app).get('/protected');
 
-    expect(response.status).toBe(403);
-    expect(response.body.message).toMatch(/deactivated/i);
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe('Unauthorized');
+    });
+
+    it('rejects requests when the session lookup throws', async () => {
+      getSession.mockRejectedValueOnce(new Error('db down'));
+
+      const response = await request(app).get('/protected');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('rejects deactivated accounts', async () => {
+      getSession.mockResolvedValueOnce(deactivatedSession);
+
+      const response = await request(app).get('/protected');
+
+      expect(response.status).toBe(403);
+      expect(response.body.message).toMatch(/deactivated/i);
+    });
+  });
+
+  describe('optionalAuth', () => {
+    it('attaches the user when a session exists', async () => {
+      getSession.mockResolvedValueOnce(activeSession);
+
+      const response = await request(app).get('/optional');
+
+      expect(response.status).toBe(200);
+      expect(response.body.user.id).toBe('better-auth-user-1');
+    });
+
+    it('continues as a guest without a session', async () => {
+      const response = await request(app).get('/optional');
+
+      expect(response.status).toBe(200);
+      expect(response.body.user).toBeNull();
+    });
+
+    it('treats deactivated accounts as guests', async () => {
+      getSession.mockResolvedValueOnce(deactivatedSession);
+
+      const response = await request(app).get('/optional');
+
+      expect(response.status).toBe(200);
+      expect(response.body.user).toBeNull();
+    });
   });
 });

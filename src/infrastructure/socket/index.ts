@@ -1,5 +1,7 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
+import { fromNodeHeaders } from 'better-auth/node';
+import { auth } from '../../auth/better-auth';
 import logger from '../../utils/logger';
 import { allowedOrigins, isOriginAllowed, rejectOrigin } from '../../middleware/cors.middleware';
 
@@ -19,8 +21,10 @@ export interface RealtimeEventPayload {
 
 let io: Server | null = null;
 
+const NOTIFICATION_ROOM_PREFIX = 'notifications:';
+
 function userNotificationRoom(userId: string): string {
-  return `notifications:user:${userId}`;
+  return `${NOTIFICATION_ROOM_PREFIX}user:${userId}`;
 }
 
 export function initSocket(server: HttpServer): Server {
@@ -38,26 +42,45 @@ export function initSocket(server: HttpServer): Server {
     transports: ['polling', 'websocket'],
   });
 
+  // Resolve the Better Auth session from the handshake (cookies or headers).
+  // Guests may still connect, but only signed-in sockets can subscribe or join rooms.
+  io.use(async (socket, next) => {
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(socket.handshake.headers),
+      });
+      const user = session?.user;
+      if (user && !user.isDeleted && user.isActive !== false) {
+        socket.data.userId = user.id;
+      }
+    } catch (err) {
+      logger.warn(`[Socket.IO] Session lookup failed for ${socket.id}: ${(err as Error).message}`);
+    }
+    next();
+  });
+
   io.on('connection', (socket: Socket) => {
     logger.info(`[Socket.IO] Client connected: ${socket.id}`);
     let joinedRooms: string[] = [];
 
-    // Authenticated / User notification subscription
-    socket.on('subscribe_notifications', (payload: { userId?: string }) => {
-      if (!payload?.userId) return;
-      const room = userNotificationRoom(payload.userId);
+    // Subscribes the signed-in user to their own notification room. The user id
+    // comes from the session, never from the client payload.
+    socket.on('subscribe_notifications', () => {
+      const userId: string | undefined = socket.data.userId;
+      if (!userId) return;
+      const room = userNotificationRoom(userId);
       if (!joinedRooms.includes(room)) {
         joinedRooms.push(room);
         void socket.join(room);
       }
-      logger.info(
-        `[Socket.IO] Socket ${socket.id} subscribed to notifications for user: ${payload.userId}`,
-      );
+      logger.info(`[Socket.IO] Socket ${socket.id} subscribed to notifications for user: ${userId}`);
     });
 
     // Generic Room Joining (e.g. workspace, dashboard, or chat)
     socket.on('join_room', (roomId: string) => {
+      if (!socket.data.userId) return;
       if (!roomId || typeof roomId !== 'string') return;
+      if (roomId.startsWith(NOTIFICATION_ROOM_PREFIX)) return;
       if (!joinedRooms.includes(roomId)) {
         joinedRooms.push(roomId);
         void socket.join(roomId);

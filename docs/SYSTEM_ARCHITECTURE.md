@@ -9,7 +9,7 @@ This document is the master specification for the entire **`rm-template`** ecosy
 ```mermaid
 graph TD
     subgraph BACKEND_ENGINES ["Backend & Identity Providers"]
-        NODE_API["node-postg-template\n(Express 4 + Prisma + PostgreSQL + Socket.IO :3002)"]
+        NODE_API["node-postg-template\n(Express 4 + Prisma + PostgreSQL + Socket.IO :4009)"]
         NUXT_API["nuxt-template-v2\n(Nitro Fullstack & JWT Server :3000)"]
     end
 
@@ -32,7 +32,7 @@ graph TD
 | Feature / Standard | Angular 19 (`angular-template-v4`) | Node.js / Postgres (`node-postg-template`) | Next.js (`next-template-v1`) | Vue.js (`vue-template-v3`) | Nuxt.js (`nuxt-template-v2`) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Framework Version** | Angular 19.1+ (Standalone) | Express 4.18+ / Node 20+ | Next.js 15 (App Router) | Vue 3.5 (Vite 6) | Nuxt 3.15+ (Nitro SSR) |
-| **Port (Local Dev)** | `http://localhost:4200` | `http://localhost:3002` | `http://localhost:3000` | `http://localhost:5173` | `http://localhost:3000` |
+| **Port (Local Dev)** | `http://localhost:4200` | `http://localhost:4009` | `http://localhost:3000` | `http://localhost:5173` | `http://localhost:3000` |
 | **Architecture** | FAOS (3-Tier) | Controller-Service-Repo + Sockets | FAOS (3-Tier) | FAOS (3-Tier) | FAOS + Nitro Server |
 | **Server State** | TanStack Angular Query v5 | Prisma ORM 6.x + Redis Cache | TanStack React Query v5 | TanStack Vue Query v5 | Nuxt `useFetch` / Nitro |
 | **Client State / Storage** | Angular Signals (`sessionStorage`) | In-Memory / Redis Sessions | Zustand v5 (`sessionStorage`) | Pinia v3 | Pinia v3 |
@@ -45,22 +45,21 @@ graph TD
 
 ---
 
-## 🔒 Unified Authentication & Token Protocol
+## 🔒 Authentication (Better Auth)
 
-Every template in this ecosystem implements the same deterministic security contract:
+Better Auth is the single source of truth for authentication (`src/auth/better-auth.ts`).
 
-1. **Authentication Endpoints (`/api/v1/auth/*`)**:
-   - `POST /api/v1/auth/login` → Validates credentials and returns `{ status: "success", statusCode: 200, data: { user, accessToken, refreshToken } }`
-   - `POST /api/v1/auth/register` → Hashes password with bcrypt and creates user
-   - `GET /api/v1/users/me` → Verifies `Authorization: Bearer <accessToken>` and returns user identity
-   - `POST /api/v1/auth/refresh-token` → Validates refresh token and returns refreshed `accessToken`
-   - `POST /api/v1/auth/logout` → Invalidates database session and clears Redis cache
+1. **Endpoints**:
+   - `POST /api/auth/sign-up/email`, `POST /api/auth/sign-in/email` → create / start a session
+   - `POST /api/auth/sign-out` → revoke the session
+   - `GET /api/auth/get-session` → current session
+   - `GET /api/v1/auth/me` → app profile (avatar, role, permissions) for the session user
 
-2. **Token Lifecycles & Secrets**:
-   - **Access Token Expiry**: `15m` (Short-lived, stored in browser `sessionStorage`)
-   - **Refresh Token Expiry**: `7d` (Long-lived session rotation in database `Session` model)
-   - **Access Token Secret**: `ACCESS_TOKEN_SECRET`
-   - **Refresh Token Secret**: `REFRESH_TOKEN_SECRET`
+2. **Sessions & Secrets**:
+   - Sessions live in the `sessions` table: 7-day expiry, refreshed daily while in use.
+   - Browsers send the httpOnly session cookie; other clients send `Authorization: Bearer <session token>` (bearer plugin).
+   - Cookies are signed with `BETTER_AUTH_SECRET` (required).
+   - `role`, `isActive`, `isDeleted`, `onboardingCompleted` are server-managed and cannot be set by clients.
 
 3. **Role-Based Access Control (RBAC)**:
    - **`SUPER_ADMIN` / `ADMIN`**: Full system administration, metric telemetry, user role elevations.
@@ -70,17 +69,13 @@ Every template in this ecosystem implements the same deterministic security cont
 
 ---
 
-## 🏢 Unified Multi-Tenant Architecture
+## 🏢 One Backend Per Project (No Multi-Tenancy)
 
-Every template connects to the centralized PostgreSQL backend with tenant isolation:
+This backend is cloned per project, so each project gets its own database and there is no tenant layer.
 
-1. **Tenant Identification**:
-   - Outgoing frontend requests attach `x-tenant-id` HTTP header (e.g. `x-tenant-id: angular-v4`, `x-tenant-id: next-v1`, `x-tenant-id: vue-v3`, `x-tenant-id: nuxt-v2`).
-   - The Express middleware (`tenant.middleware.ts`) automatically extracts the tenant slug and injects `req.tenant` into all downstream services.
+An earlier version shared one backend across all template frontends and separated their data with an `x-tenant-id` header. That was a client-app label, not real isolation, and it was removed once the template moved to one backend per project.
 
-2. **Database Isolation (`Tenant` Model)**:
-   - All domain resources (`AngularTopic`, `User`, workspaces) are scoped by `tenantId`.
-   - Allows clean multi-frontend coexistence without data collisions or separate server instances.
+If a future project needs real multi-tenancy (separate customer organizations), derive the tenant from the authenticated user's membership rather than a client-supplied header. Better Auth's `organization` plugin is a good starting point.
 
 ---
 
