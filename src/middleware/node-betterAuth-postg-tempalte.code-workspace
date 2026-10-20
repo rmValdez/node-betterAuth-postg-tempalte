@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../../frontend/next-betterAuth-template-v1"
+		}
+	],
+	"settings": {}
+}
