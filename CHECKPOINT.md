@@ -1,116 +1,97 @@
-# TURNING POINT CHECKPOINT: Better Auth Migration & Full Stack Integration
+# CHECKPOINT: Better Auth Full-Stack Template
 
-> **STATUS**: CHECKPOINT 5 - ROLES ALIGNED, BETTER AUTH CLIENT INTEGRATED, FULL BUILDS VERIFIED  
-> **TIMESTAMP**: 2026-10-12  
-> **GIT TAG (BACKEND)**: `checkpoint-phase-3-integration`  
-> **GIT REMOTE (FRONTEND)**: `https://github.com/rmValdez/next-betterAuth-template-v1.git` (HEAD: `b8abd96` JWT Baseline)  
-
----
-
-## 1. Executive Summary
-
-This project integrates a production-ready **Node.js Express + Better Auth + PostgreSQL** backend with a modern **Next.js 15 (App Router)** frontend template.
-
-- **Backend (`node-betterAuth-postg-tempalte`)**:
-  - Express on port `3002`.
-  - Single Source of Truth for all authentication, user accounts, sessions, and RBAC (`USER`, `ADMIN`, `SUPER_ADMIN`, `DEVELOPER`).
-  - Unit tests passing (**38 / 38 unit tests** across 6 test suites).
-  - TypeScript build clean (`pnpm build`), architecture validated (`pnpm validate`).
-- **Frontend (`next-betterAuth-template-v1`)**:
-  - Located at `C:\Users\My PC\Documents\Github\personal\template\integrated-repo\frontend\next-betterAuth-template-v1`.
-  - Pushed to GitHub repository: `https://github.com/rmValdez/next-betterAuth-template-v1.git` at commit `b8abd96` (JWT baseline).
-  - Roles aligned with backend Prisma RBAC (`USER`, `ADMIN`, `SUPER_ADMIN`, `DEVELOPER`).
-  - Auth components updated: `LoginForm.tsx`, `RegisterWorkflow.tsx`, `app/login/page.tsx`, `app/register/page.tsx`.
-  - All **22 Vitest tests pass** (`4 suites`), architecture scanner clean, and production build succeeds (`next build` compiled cleanly).
+> **STATUS**: CHECKPOINT 6 — HARDENED, CLEANED UP, CI GREEN
+> **DATE**: 2026-10-13
+> **BACKEND `main`**: `19fada1` — https://github.com/rmValdez/node-betterAuth-postg-tempalte
+> **FRONTEND `main`**: `08ecec1` — https://github.com/rmValdez/next-betterAuth-template-v1
+> Previous checkpoint (5, JWT + Better Auth dual auth): see git history of this file.
 
 ---
 
-## 2. Directory & Repository Map
+## 1. Summary
 
-```text
-integrated-repo/
-├── backend/
-│   ├── node-postg-backend-template       <-- Original backend (JWT)
-│   └── node-betterAuth-postg-tempalte   <-- Active Better Auth backend (Port 3002)
-└── frontend/
-    ├── next-template-v1                 <-- Original frontend template
-    └── next-betterAuth-template-v1      <-- Connected frontend template (Port 3000)
+A **Node.js Express + Better Auth + PostgreSQL** backend paired with a **Next.js 15** frontend template.
+Each new project clones both; they are not shared between projects.
+
+| | Backend (`node-betterAuth-postg-tempalte`) | Frontend (`next-betterAuth-template-v1`) |
+|---|---|---|
+| Port | **4009** (API, Better Auth, Socket.IO) | **4010** |
+| Auth | Better Auth only — session cookie or `Authorization: Bearer <session token>` | Better Auth client + `fetcher` with `credentials: "include"` |
+| Pages / API | `/api/auth/*`, `/api/v1/auth/me`, `/api/v1/users` (admin), `/api/v1/quiz/*`, uploads | `/`, `/login`, `/register`, `/dashboard` (protected) |
+| Tests | 51 / 51 (9 suites) | 22 / 22 (4 suites) |
+| CI | ✅ green — lint, tsc, tests, build, **migrations + drift check + seed on Postgres 15** | ✅ green — lint, tsc, validate, tests, build |
+| Deploys | Dockerfile runs `prisma migrate deploy` on start | ECR / Vercel workflows are **manual only** (not configured yet) |
+
+---
+
+## 2. What changed in this checkpoint
+
+**Security**
+- Clients can no longer set `role`, `isActive`, `isDeleted`, `onboardingCompleted` via sign-up or
+  update-user (`input: false`) — closed a sign-up-as-`SUPER_ADMIN` privilege escalation.
+- Legacy JWT auth removed (register/login/refresh/logout routes, token cookies, `User.password`,
+  `ACCESS/REFRESH_TOKEN_*` / `COOKIE_SECRET`). `BETTER_AUTH_SECRET` is required.
+- `GET /v1/users` is ADMIN/SUPER_ADMIN only; uploads require auth; Socket.IO resolves the session
+  in the handshake; CORS allows localhost only in development; Better Auth rate limiting is on in
+  all environments; 5xx errors no longer leak internal messages.
+
+**Cleanup**
+- Multi-tenancy removed (it was a client-supplied header, never a security boundary).
+- Frontend reduced to a generic template: marketplace leftovers removed (seller layout/sidebar,
+  orders/products hooks, S3 presign route, mapbox/qrcode deps); no fake role pickers on login/register.
+- Fixed frontend↔backend wiring: `fetcher` built `/api/v1/api/v1/...`; `useCurrentUser` decoded
+  the session token as a JWT; users contract expected `data.users` instead of `data.items`.
+
+**Database & CI/CD**
+- Prisma migrations (`prisma/migrations/20261013000000_init`); local DB `node_betterauth_template_db`.
+- CI modeled on mapanytime: Postgres service container, `migrate deploy`, drift check
+  (`migrate diff --exit-code` against a separate shadow DB), seeders.
+- Frontend Dockerfile takes `NEXT_PUBLIC_*` as build args; `.env*` excluded from images.
+
+---
+
+## 3. Open items (flagged, not yet fixed)
+
+### Fix soon
+- [ ] **Bad quiz id returns 500.** `GET /api/v1/quiz/abc` → `parseInt` gives `NaN` → Prisma
+      validation error → 500. Should be 400/404. (`src/controllers/quiz.controller.ts`, `show`)
+- [ ] **Frontend docs are stale.** ~10 references in `README.md` / `docs/` to old ports
+      (3000/3001/3002), JWT access/refresh tokens and seller pages.
+
+### Before deploying to production
+- [ ] **Cross-domain cookies.** Better Auth cookies default to `SameSite=Lax`. If frontend and backend
+      live on different sites (e.g. `*.vercel.app` + `api.example.com`) the browser won't send the
+      session cookie. Either host both on one parent domain (`app.example.com` + `api.example.com`,
+      optionally `advanced.crossSubDomainCookies`), or set `SameSite=None; Secure` behind an env flag.
+- [ ] **Configure deploy workflows** when needed (frontend): ECR → variable `AWS_DEPLOY_ROLE_ARN`,
+      secret `NEXT_PUBLIC_API_URL`; Vercel → secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+      Details at the top of each workflow file.
+
+### Product decisions (not bugs)
+- [ ] **Email verification is off** (`requireEmailVerification: false`) — anyone can sign up with
+      any email. Enable once the mailer (SMTP) is configured.
+- [ ] **Rate limiter is in-memory** — correct for a single instance; switch Better Auth `rateLimit.storage`
+      to `"database"` or Redis when running multiple instances.
+- [ ] **Session token in `localStorage`** (Bearer fallback, `src/shared/lib/token.ts`) is readable by
+      any script on the page if an XSS ever occurs. Cookie-only auth would be safer.
+- [ ] **Socket.IO rooms** — any signed-in user can join any room except `notifications:*`.
+      Add per-room authorization when building real-time features.
+
+---
+
+## 4. Running it locally
+
+```bash
+# backend (port 4009) — needs Postgres + BETTER_AUTH_SECRET in .env
+pnpm install && pnpm run db:setup && pnpm run db:seed && pnpm dev
+
+# frontend (port 4010) — .env.local: NEXT_PUBLIC_API_URL=http://localhost:4009/api/v1
+pnpm install && pnpm dev
 ```
 
-- **Frontend Remote**: `https://github.com/rmValdez/next-betterAuth-template-v1.git`
-  - Current commit on GitHub `main`: `b8abd96` (`feat: initial Next.js template baseline with JWT authentication`).
-  - Next commit to apply upon resumption: `feat(auth): integrate Better Auth client with Express backend`.
+Seeded accounts (password `Password123!`): `superadmin@example.com`, `admin@example.com` (SUPER_ADMIN),
+`dev@example.com` (DEVELOPER), `user@example.com` (USER).
 
----
+## 5. Repository rule
 
-## 3. Key Design Decisions & Code Architecture
-
-### 3.1 Environment & URL Configuration
-- **No Extra `.env` Variables**: Rather than requiring developers to maintain both `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_AUTH_URL` in `.env`, the root backend origin is derived automatically in `src/shared/config/api.ts`:
-  ```typescript
-  export const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
-  export const AUTH_BASE_URL = env.NEXT_PUBLIC_AUTH_URL || new URL(env.NEXT_PUBLIC_API_URL).origin;
-  ```
-- **Beginner-Friendly `.env` Validation**:
-  - `src/shared/lib/env.ts` eliminates broken encoding characters and displays plain-language setup instructions if `.env.local` is missing.
-  - `NEXT_PUBLIC_AUTH_URL` is completely optional.
-
-### 3.2 Better Auth Client Setup
-- **Client File**: `src/shared/lib/auth-client.ts`
-  ```typescript
-  import { createAuthClient } from "better-auth/react";
-  import { AUTH_BASE_URL } from "@/shared/config/api";
-
-  export const authClient = createAuthClient({
-    baseURL: AUTH_BASE_URL,
-    fetchOptions: {
-      credentials: "include", // Transmits session cookies cross-origin
-    },
-  });
-
-  export const { signIn, signUp, signOut, useSession, getSession } = authClient;
-  ```
-- **Domain API Requests (`src/shared/lib/http.ts`)**:
-  - `fetcher` specifies `credentials: "include"`, ensuring Better Auth cookies (`better-auth.session_token`) are forwarded automatically to Express.
-
-### 3.3 Roles & Permissions (RBAC) Architecture
-- **Backend Prisma `UserRole`**:
-  - `SUPER_ADMIN`: Complete system access (`users:*`, `dashboard:view`, `settings:manage`, `sandbox:access`, `quiz:manage`).
-  - `ADMIN`: Operational management (`users:*`, `dashboard:view`, `settings:manage`, `sandbox:access`, `quiz:manage`).
-  - `DEVELOPER`: API and sandbox access (`users:read`, `dashboard:view`, `sandbox:access`, `quiz:manage`).
-  - `USER`: Standard user (`dashboard:view`, `sandbox:access`).
-- **Frontend Role Alignment**:
-  - `src/features/auth/types.ts`: `LoginRole = "user" | "admin" | "super_admin" | "developer"`
-  - `src/features/auth/api/login.api.ts`: `UserRole = "USER" | "ADMIN" | "SUPER_ADMIN" | "DEVELOPER"`
-  - `src/features/users/types.ts`: `SYSTEM_ROLES = { SUPER_ADMIN, ADMIN, DEVELOPER, USER }`
-  - `LoginForm.tsx`: Offers `User`, `Admin`, `Developer` portal sign-in options, or universal email/password authentication.
-  - `RegisterWorkflow.tsx`: Clean registration for `Standard User` and `Developer Access`.
-
----
-
-## 4. Verification & Health Summary
-
-| Check | Backend (`node-betterAuth-postg-tempalte`) | Frontend (`next-betterAuth-template-v1`) |
-|---|---|---|
-| **TypeScript (`tsc --noEmit`)** | ✅ Passed (0 errors) | ✅ Passed (0 errors) |
-| **Unit Tests** | ✅ 38 / 38 unit tests passed (6 suites) | ✅ 22 / 22 vitest tests passed (4 suites) |
-| **Architecture Validator** | ✅ Clean (`tools/validate-architecture.mjs`) | ✅ Clean (`tools/validate-architecture.mjs`) |
-| **Production Build** | ✅ `pnpm build` clean | ✅ `next build` clean (all routes compiled) |
-| **Git Remote Sync** | Local working repo | Baseline pushed (`b8abd96`) |
-
----
-
-## 5. Immediate Next Steps When Resuming
-
-1. **Commit & Push Frontend Changes**:
-   - Stage and commit Better Auth integration changes to `next-betterAuth-template-v1`:
-     `git commit -m "feat(auth): integrate Better Auth client with Express backend"`
-   - Push to `main`.
-2. **Commit & Push Backend Changes**:
-   - Stage and commit updated auth middleware, docs, and seeder to `node-betterAuth-postg-tempalte`.
-   - Push to remote.
-3. **End-to-End Test in Browser**:
-   - Start backend: `pnpm dev` in `backend/node-betterAuth-postg-tempalte` (Port 3002).
-   - Start frontend: `pnpm dev` in `frontend/next-betterAuth-template-v1` (Port 3000).
-   - Test user registration and login in the browser to verify cookie storage and session persistence.
-
+- No AI co-author attribution in commits or pull requests (see `~/.claude/CLAUDE.md`).
